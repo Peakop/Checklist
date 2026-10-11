@@ -212,7 +212,7 @@ button,input,select{font:inherit;color:inherit}
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6M9 4a2 2 0 0 0-2 2H6a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1a2 2 0 0 0-2-2"/><path d="m8.5 13.5 2.5 2.5 4.5-5"/></svg>
       </div>
       <div>
-        <h1>Doc Checklist <span class="app-ver" title="เวอร์ชันของเว็บ">v1.2.1</span></h1>
+        <h1>Doc Checklist <span class="app-ver" title="เวอร์ชันของเว็บ">v1.2.2</span></h1>
         <p>ตรวจเอกสารตาม Document Standard ทีม Stealth Trade</p>
       </div>
     </div>
@@ -1100,16 +1100,20 @@ async function buildPages(){
     });
   });
 
-  // summary
+  // summary + signatures are kept together on one page
+  const SW = CW / 4, SIG_H = mm(42);
+  const sumRows = [
+    [{w:SW, text:'รายการทั้งหมด', fill:LBL, weight:600}, {w:SW, text:`${st.total} ข้อ`, align:'center'}, {w:SW, text:'ตรวจแล้ว', fill:LBL, weight:600}, {w:SW, text:`${st.checked} ข้อ`, align:'center'}],
+    [{w:SW, text:'มี', fill:LBL, weight:600}, {w:SW, text:`${st.yes} ข้อ`, align:'center'}, {w:SW, text:'ไม่มี', fill:LBL, weight:600}, {w:SW, text:`${st.no} ข้อ`, align:'center'}],
+    [{w:SW, text:'ไม่เกี่ยวข้อง (N/A)', fill:LBL, weight:600}, {w:SW, text:`${st.na} ข้อ`, align:'center'}, {w:SW, text:'จำนวนที่ผิดพลาด', fill:LBL, weight:600}, {w:SW, text:`${st.err} จุด`, align:'center'}],
+    [{w:SW, text:'ผลการตรวจ', fill:LBL, weight:600}, {w:CW - SW, text:st.label, weight:700, color:resColor, align:'center'}]
+  ];
+  const sumH = mm(7.5) + sumRows.reduce((s, r) => s + rowHeight(r, 10.5), 0);
+  if (y + sumH + SIG_H > mm(PH - MB)) newPage();
   caption('ตาราง 3', 'สรุปผลการตรวจสอบ');
-  const SW = CW / 4;
-  drawRow([{w:SW, text:'รายการทั้งหมด', fill:LBL, weight:600}, {w:SW, text:`${st.total} ข้อ`, align:'center'}, {w:SW, text:'ตรวจแล้ว', fill:LBL, weight:600}, {w:SW, text:`${st.checked} ข้อ`, align:'center'}]);
-  drawRow([{w:SW, text:'มี', fill:LBL, weight:600}, {w:SW, text:`${st.yes} ข้อ`, align:'center'}, {w:SW, text:'ไม่มี', fill:LBL, weight:600}, {w:SW, text:`${st.no} ข้อ`, align:'center'}]);
-  drawRow([{w:SW, text:'ไม่เกี่ยวข้อง (N/A)', fill:LBL, weight:600}, {w:SW, text:`${st.na} ข้อ`, align:'center'}, {w:SW, text:'จำนวนที่ผิดพลาด', fill:LBL, weight:600}, {w:SW, text:`${st.err} จุด`, align:'center'}]);
-  drawRow([{w:SW, text:'ผลการตรวจ', fill:LBL, weight:600}, {w:CW - SW, text:st.label, weight:700, color:resColor, align:'center'}]);
+  sumRows.forEach(r => drawRow(r));
 
   // signatures
-  if (y + mm(42) > mm(PH - MB)) newPage();
   y += mm(16);
   const colX = [mm(ML + CW / 4), mm(ML + CW * 3 / 4)];
   const sig = [[info.author, 'ผู้จัดทำ'], [info.qa, 'QA ผู้ตรวจ']];
