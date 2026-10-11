@@ -226,7 +226,7 @@ button,input,select{font:inherit;color:inherit}
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6M9 4a2 2 0 0 0-2 2H6a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1a2 2 0 0 0-2-2"/><path d="m8.5 13.5 2.5 2.5 4.5-5"/></svg>
       </div>
       <div>
-        <h1>Doc Checklist <span class="app-ver" title="เวอร์ชันของเว็บ">v1.3.0</span></h1>
+        <h1>Doc Checklist <span class="app-ver" title="เวอร์ชันของเว็บ">v1.3.1</span></h1>
         <p>ตรวจเอกสารตาม Document Standard ทีม Stealth Trade</p>
       </div>
     </div>
@@ -381,12 +381,17 @@ const REPORT = new Set(['MRPO','MRT','IM']);
 const CHART = new Set(['GC','MS','MC','DC','BC','VLC']);
 const SHEET = new Set(['PP','DC','MC','GC','RM']);          // ส่งเป็นไฟล์ Excel ไม่มีหน้ากระดาษ A4
 const LONG = new Set(['SRSD','TP','DS','CS','UXIS']);       // เอกสารยาวที่มีหน้าปก ตารางควบคุมการเปลี่ยนแปลง และสารบัญ
-const DIAGRAM_IMG = new Set(['UCD','AD','SD','CD','SMD','ERD','SM']);
+const DIAGRAM_IMG = new Set(['UCD','AD','SD','CD','SMD','ERD','SM']);  // ส่งเป็นไฟล์ภาพเดี่ยว (.jpg/.png) ไม่มีหน้ากระดาษ
+
+/* id ของข้อตรวจ = key หมวด + ลำดับเดิม; หมวดที่ตัดบางข้อออก (pick) ยังใช้ id เดิม เพื่อให้ผลที่บันทึกไว้และการตรวจอัตโนมัติตรงข้อ */
+const itemId = (s, i) => `${s.key}.${s.ids ? s.ids[i] : i}`;
+const pick = (s, ids) => Object.assign({}, s, {ids, items:ids.map(i => s.items[i])});
 
 const SEC = {
   naming: code => ({key:'naming', title:'การตั้งชื่อไฟล์เอกสาร', ref:'DS ข้อ 3', items:[
     'ชื่อไฟล์ใช้รูปแบบ ปี-เดือน-วัน_รหัสเอกสาร_เวอร์ชัน (YYYY-MM-DD_ID_Version)',
-    `รหัสเอกสารในชื่อไฟล์เป็น "${code}" ตามตารางรหัสเอกสาร`,
+    code === 'VC' ? 'รหัสเอกสารในชื่อไฟล์เป็น "VC" ตามด้วยรหัสเอกสารที่ควบคุม (เช่น VC_UCD)'
+                  : `รหัสเอกสารในชื่อไฟล์เป็น "${code}" ตามตารางรหัสเอกสาร`,
     ...(MEETING.has(code) ? ['ระบุครั้งที่ต่อท้ายรหัสเอกสาร (YYYY-MM-DD_ID_ครั้งที่N_Version)'] : [])
   ]}),
   version: {key:'version', title:'การควบคุมเวอร์ชัน', ref:'DS ข้อ 3', items:[
@@ -505,8 +510,7 @@ const DIAGRAM = {
   ]},
   UCDS: {key:'ucds', title:'คำอธิบายยูสเคส (Use Case Description)', ref:'DS ข้อ 6.1', items:[
     'Actor สอดคล้องกับ Use Case',
-    'ขั้นตอนการทำงานตรงกับ Activity Diagram',
-    'ระบุรหัส Use Case ครบถ้วน'
+    'ขั้นตอนการทำงานตรงกับ Activity Diagram'
   ]},
   AD: {key:'ad', title:'แผนภาพกิจกรรม (Activity Diagram)', ref:'DS ข้อ 6.1', items:[
     'ส่วนหัวมีเฉพาะผู้ติดต่อ (Actor) และระบบ (System)',
@@ -520,7 +524,7 @@ const DIAGRAM = {
     'Message ใช้เส้นทึบหัวลูกศรทึบ และตั้งชื่อเป็น กริยา + กรรม',
     'Return Message ใช้เส้นประหัวลูกศรเปิด',
     'ใช้กรอบ alt สำหรับเงื่อนไข และกรอบ loop สำหรับการทำงานซ้ำ',
-    'ชื่อ Actor และ Object สอดคล้องกับ Use Case Diagram และ Class Diagram',
+    'ชื่อ Actor สอดคล้องกับ Use Case Diagram และชื่อ Object (เช่น View, Controller, Model) ใช้เหมือนกันทุกแผนภาพ',
     'ชื่อ Actor เป็นภาษาไทย'
   ]},
   CD: {key:'cd', title:'แผนภาพคลาส (Class Diagram)', ref:'DS ข้อ 6.1', items:[
@@ -640,7 +644,7 @@ function contentFor(code){
     'ใช้เครื่องมือวาดและรูปแบบสัญลักษณ์เดียวกันทุกแผนภาพ',
     code === 'UCD' && 'กรอบขอบเขตระบุชื่อระบบ',
     code === 'UCD' && 'ทุกวงรีมีรหัส Use Case กำกับในรูปแบบเดียวกัน (เช่น UC-01, UC-01.1 ไม่ใช่ UC-9)',
-    (code === 'AD' || code === 'SD') && 'รหัสแผนภาพอ้างอิงรหัส Use Case ได้ (เช่น ACT-01.1 คู่กับ UC-01.1)',
+    (code === 'AD' || code === 'SD') && 'แยก 1 ไฟล์ต่อ 1 Use Case และรหัส Use Case ในชื่อไฟล์ตรงกับ Use Case Diagram (เช่น UC01_AD คู่กับ UC01)',
     code === 'AD' && 'มีจุดเริ่มต้น 1 จุด และจุดสิ้นสุดใช้สัญลักษณ์วงกลมซ้อน (Activity Final)',
     code === 'AD' && 'ลำดับกิจกรรมตรงกับขั้นตอนใน Use Case Description',
     code === 'SMD' && 'ลูกศรเปลี่ยนสถานะชี้ทิศทางถูกต้อง',
@@ -766,8 +770,15 @@ function contentFor(code){
 }
 
 function sectionsFor(code){
-  const sheet = SHEET.has(code);
-  const base = [SEC.naming(code), SEC.version, ...(sheet ? [SEC.sheet] : [SEC.page, SEC.font, SEC.spacing, SEC.pagenum])];
+  const sheet = SHEET.has(code), img = DIAGRAM_IMG.has(code);
+  // ไฟล์ภาพแผนภาพไม่มีหน้ากระดาษ ตัวพิมพ์ หรือเลขหน้า และเวอร์ชันเทียบกับเอกสาร Version Control ของแผนภาพแทน
+  const version = img ? Object.assign({}, SEC.version, {items:[...SEC.version.items.slice(0, 4), 'เวอร์ชันในชื่อไฟล์ตรงกับเวอร์ชันล่าสุดในเอกสาร Version Control (VC) ของแผนภาพนี้']}) : SEC.version;
+  // UCDS และ VC เป็นตารางล้วน ไม่มีหัวข้อระดับต่าง ๆ และไม่มีบทนำ
+  const layout = sheet ? [SEC.sheet] : img ? []
+    : code === 'UCDS' ? [SEC.page, pick(SEC.font, [0, 4]), pick(SEC.spacing, [0]), pick(SEC.pagenum, [1, 2])]
+    : code === 'VC' ? [SEC.page, pick(SEC.font, [0, 1, 4]), pick(SEC.spacing, [0, 1]), pick(SEC.pagenum, [1, 2])]
+    : [SEC.page, SEC.font, SEC.spacing, SEC.pagenum];
+  const base = [SEC.naming(code), version, ...layout];
   const front = LONG.has(code) ? [SEC.front] : [];
   const content = contentFor(code);
   let extra;
@@ -775,8 +786,10 @@ function sectionsFor(code){
   else if (INVITE.has(code)) extra = [SEC.invite, content, SEC.writing, SEC.lang];
   else if (AGENDA.has(code)) extra = [SEC.invite, SEC.agendaDS, content, SEC.writing, SEC.lang, SEC.table];
   else if (REPORT.has(code)) extra = [SEC.report, content, SEC.writing, SEC.lang, SEC.table];
-  else if (DIAGRAM_IMG.has(code)) extra = [DIAGRAM[code], content, SEC.image];
-  else if (code === 'UCDS' || code === 'DD') extra = [DIAGRAM[code], content, SEC.lang, SEC.table, SEC.image];
+  else if (img) extra = [DIAGRAM[code], content];
+  else if (code === 'UCDS') extra = [DIAGRAM.UCDS, content, SEC.lang, pick(SEC.table, [0, 2, 3])];
+  else if (code === 'VC') extra = [content, SEC.lang, SEC.table];
+  else if (code === 'DD') extra = [DIAGRAM.DD, content, SEC.lang, SEC.table, SEC.image];
   else if (code === 'RP') extra = [DIAGRAM.RP, content, SEC.image];
   else if (CHART.has(code)) extra = [content, SEC.lang, SEC.table, SEC.image];
   else extra = [content, SEC.writing, SEC.lang, SEC.table, SEC.image];
@@ -807,7 +820,7 @@ function statsFor(code){
   const secs = sectionsFor(code); const ch = state.checks[code] || {};
   let total = 0, yes = 0, no = 0, na = 0, err = 0;
   secs.forEach(s => s.items.forEach((_, i) => {
-    total++; const c = ch[`${s.key}.${i}`];
+    total++; const c = ch[itemId(s, i)];
     if (!c || !c.s) return;
     if (c.s === 'yes') yes++; else if (c.s === 'na') na++;
     else if (c.s === 'no') { no++; err += Math.max(0, parseInt(c.err, 10) || 0); }
@@ -900,7 +913,7 @@ function renderChecklist(){
       <button type="button" class="ghost" data-bulk="na" data-sec="${sec.key}">ทั้งหมวด N/A</button></div></header>`;
     const rows = document.createElement('div'); rows.className = 'rows';
     sec.items.forEach((t, ii) => {
-      const id = `${sec.key}.${ii}`; const n = `${si+1}.${ii+1}`;
+      const id = itemId(sec, ii); const n = `${si+1}.${ii+1}`;
       const row = document.createElement('div'); row.className = 'row'; row.dataset.id = id;
       row.innerHTML = `<div class="num">${n}</div><div class="txt">${esc(t)}<span class="auto-tag" hidden></span><div class="auto-note" hidden></div></div>
         <div class="seg" role="group" aria-label="การใช้งาน ข้อ ${n}"><button type="button" data-v="yes">มี</button><button type="button" data-v="no">ไม่มี</button><button type="button" data-v="na">N/A</button></div>
@@ -941,7 +954,7 @@ $('#sections').addEventListener('click', e => {
   if (bulk) {
     const sec = currentSections.find(s => s.key === bulk.dataset.sec); const ch = checksOf(state.doc);
     sec.items.forEach((_, i) => {
-      const id = `${sec.key}.${i}`;
+      const id = itemId(sec, i);
       if (bulk.dataset.bulk === 'yes') { if (!ch[id] || !ch[id].s) setCheck(id, {s:'yes', auto:false}); }
       else setCheck(id, {s:'na', auto:false});
     });
@@ -965,7 +978,7 @@ function updateSummary(){
   const out = $('#outResult'); out.innerHTML = `<span class="pill ${st.result}">${st.label}</span>`;
   const ch = state.checks[state.doc] || {};
   currentSections.forEach(sec => {
-    const done = sec.items.filter((_, i) => ch[`${sec.key}.${i}`] && ch[`${sec.key}.${i}`].s).length;
+    const done = sec.items.filter((_, i) => ch[itemId(sec, i)] && ch[itemId(sec, i)].s).length;
     const el = document.querySelector(`[data-prog="${sec.key}"]`);
     if (el) { el.textContent = `${done}/${sec.items.length}`; el.classList.toggle('done', done === sec.items.length); }
   });
@@ -1125,7 +1138,7 @@ async function buildPages(){
     if (y + mm(17) > mm(PH - MB)) { newPage(); onBreak(); }
     drawRow([{w:CW, text:`${si + 1}. ${sec.title}  (${sec.ref})`, weight:700, fill:SECF}], {onBreak});
     sec.items.forEach((t, ii) => {
-      const c = ch[`${sec.key}.${ii}`] || {};
+      const c = ch[itemId(sec, ii)] || {};
       const note = c.note || (c.s === 'na' ? 'ไม่เกี่ยวข้องกับเอกสารนี้' : '');
       drawRow([
         {w:C[0], text:`${si + 1}.${ii + 1}`, align:'center'}, {w:C[1], text:t},
@@ -1408,7 +1421,8 @@ function analyzeDocx(xml, opts){
 
   /* --- file name (DS ข้อ 3) --- */
   const base = opts.fileName.replace(/\.docx$/i, '').replace(/\s*\(\d+\)$/, '').trim();
-  const fm = /^(\d{4})-(\d{2})-(\d{2})_([A-Za-z]+)(_ครั้งที่\s?\d+)?_V(\d+\.\d+\.\d+)$/.exec(base);
+  // VC ต่อท้ายด้วยรหัสเอกสารที่ควบคุม เช่น 2569-09-13_VC_UCD_V1.3.0
+  const fm = new RegExp(`^(\\d{4})-(\\d{2})-(\\d{2})_([A-Za-z]+)${opts.code === 'VC' ? '(?:_[A-Za-z]+)?' : ''}(_ครั้งที่\\s?\\d+)?_V(\\d+\\.\\d+\\.\\d+)$`).exec(base);
   const fileVer = (/_V(\d+\.\d+\.\d+)$/.exec(base) || [])[1] || null;
   const dateOk = fm && +fm[2] >= 1 && +fm[2] <= 12 && +fm[3] >= 1 && +fm[3] <= 31;
   if (fm && dateOk) set('naming.0', 'yes', `ชื่อไฟล์ ${base}`);
@@ -1738,7 +1752,7 @@ async function readDocx(file){
 function applyAuto(R){
   const ch = checksOf(state.doc);
   Object.keys(ch).forEach(id => { if (ch[id].auto) delete ch[id]; });
-  const ids = new Set(); currentSections.forEach(s => s.items.forEach((_, i) => ids.add(`${s.key}.${i}`)));
+  const ids = new Set(); currentSections.forEach(s => s.items.forEach((_, i) => ids.add(itemId(s, i))));
   const out = {yes:0, no:0, na:0, hint:0, kept:0, total:ids.size};
   Object.keys(R).forEach(id => {
     if (!ids.has(id)) return;
