@@ -1,0 +1,960 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Stealth Trade Doc Checklist</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Sarabun:wght@400;600;700&display=swap">
+<style>
+/* Layout: two-pane inspection workbench. Document index on the left, the inspection sheet on the right, sticky score strip on top of the sheet. */
+:root{
+  --paper:#EDF0F4; --sheet:#FFFFFF; --ink:#17202D; --muted:#5A6577; --faint:#8A94A3;
+  --line:#DAE0E8; --line-strong:#BCC5D2;
+  --accent:#1D4E9E; --accent-ink:#FFFFFF; --accent-soft:#E4EBF7;
+  --pass:#17794A; --pass-soft:#E1F1E8; --fail:#BE3A2E; --fail-soft:#FBEAE7;
+  --warn:#94600A; --warn-soft:#FAF0D9; --na:#677080; --na-soft:#E9ECF0;
+  --f-ui:"IBM Plex Sans Thai","Noto Sans Thai","Leelawadee UI",system-ui,sans-serif;
+  --f-doc:"Sarabun","Noto Sans Thai",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --r:10px; --r-sm:7px;
+  --shadow:0 1px 2px rgba(23,32,45,.06),0 4px 14px rgba(23,32,45,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0E131A; --sheet:#161D27; --ink:#E5EAF1; --muted:#9AA5B5; --faint:#6E7887;
+    --line:#273141; --line-strong:#384457;
+    --accent:#86A9EE; --accent-ink:#0E131A; --accent-soft:#1C2940;
+    --pass:#53C48F; --pass-soft:#12301F; --fail:#F07D71; --fail-soft:#3A1B18;
+    --warn:#E6B154; --warn-soft:#33280F; --na:#A3ACB9; --na-soft:#222A36;
+    --shadow:0 1px 2px rgba(0,0,0,.3);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0E131A; --sheet:#161D27; --ink:#E5EAF1; --muted:#9AA5B5; --faint:#6E7887;
+  --line:#273141; --line-strong:#384457;
+  --accent:#86A9EE; --accent-ink:#0E131A; --accent-soft:#1C2940;
+  --pass:#53C48F; --pass-soft:#12301F; --fail:#F07D71; --fail-soft:#3A1B18;
+  --warn:#E6B154; --warn-soft:#33280F; --na:#A3ACB9; --na-soft:#222A36;
+  --shadow:0 1px 2px rgba(0,0,0,.3);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{background:var(--paper)}
+body{color:var(--ink);font-family:var(--f-ui);font-size:15px;line-height:1.55;padding-inline:16px;padding-block:0 48px}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{max-width:1360px;margin:0 auto}
+
+/* top bar */
+.topbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;padding-block:18px 14px}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.mark{width:34px;height:34px;border-radius:8px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;flex:none}
+.brand h1{font-size:17px;font-weight:600;margin:0;line-height:1.25}
+.brand p{margin:0;font-size:12.5px;color:var(--muted)}
+.ref-chip{font-family:var(--f-mono);font-size:12px;color:var(--muted);border:1px solid var(--line-strong);border-radius:999px;padding:3px 10px;white-space:nowrap}
+.top-actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:7px;border-radius:var(--r-sm);padding:8px 14px;border:1px solid var(--line-strong);background:var(--sheet);cursor:pointer;font-weight:500;font-size:14px;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn[disabled]{opacity:.55;cursor:progress}
+.btn svg{width:16px;height:16px;flex:none}
+.btn.danger-arm{border-color:var(--fail);color:var(--fail);background:var(--fail-soft)}
+
+/* layout */
+.layout{display:grid;grid-template-columns:272px minmax(0,1fr);gap:18px;align-items:start}
+
+/* sidebar */
+.side{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);display:flex;flex-direction:column;max-height:calc(100vh - 24px);overflow:hidden}
+.side-head{padding:14px 14px 10px;border-bottom:1px solid var(--line)}
+.side-head h2{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 8px;font-weight:600}
+.search{position:relative}
+.search input{width:100%;border:1px solid var(--line-strong);border-radius:var(--r-sm);padding:7px 10px 7px 32px;background:var(--paper)}
+.search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--faint)}
+.doc-list{overflow:auto;padding:6px 8px 12px;flex:1}
+.grp{font-size:11.5px;color:var(--faint);font-weight:600;letter-spacing:.04em;padding:12px 8px 4px}
+.doc{display:grid;grid-template-columns:52px minmax(0,1fr) 8px;align-items:center;gap:8px;width:100%;text-align:left;border:0;background:none;border-radius:6px;padding:6px 8px;cursor:pointer;font-size:13.5px;line-height:1.3}
+.doc:hover{background:var(--paper)}
+.doc .code{font-family:var(--f-mono);font-size:11.5px;color:var(--muted)}
+.doc .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.doc .dot{width:7px;height:7px;border-radius:50%}
+.doc .dot.p{background:var(--warn)} .doc .dot.ok{background:var(--pass)} .doc .dot.bad{background:var(--fail)}
+.doc[aria-current="true"]{background:var(--accent-soft)}
+.doc[aria-current="true"] .code,.doc[aria-current="true"] .nm{color:var(--accent);font-weight:600}
+.empty-search{padding:16px 8px;color:var(--muted);font-size:13px}
+
+/* cards */
+.main{display:flex;flex-direction:column;gap:14px;min-width:0}
+.card{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+.info{padding:18px 20px 20px}
+.doc-title{display:flex;align-items:center;gap:14px;margin-bottom:16px;flex-wrap:wrap}
+.code-badge{font-family:var(--f-mono);font-size:15px;background:var(--accent-soft);color:var(--accent);border-radius:8px;padding:6px 11px}
+.doc-title h2{font-size:20px;margin:0;font-weight:600;line-height:1.3;text-wrap:balance}
+.doc-title .grp-lbl{font-size:13px;color:var(--muted)}
+.fields{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px 16px}
+.f{display:flex;flex-direction:column;gap:5px;min-width:0}
+.f label,.f .lbl{font-size:12.5px;color:var(--muted);font-weight:500}
+.f input,.f select{width:100%;border:1px solid var(--line-strong);border-radius:var(--r-sm);padding:8px 10px;background:var(--sheet);min-height:40px}
+.f input:hover,.f select:hover{border-color:var(--faint)}
+.f input.mono{font-family:var(--f-mono);font-size:13.5px}
+.s6{grid-column:span 6} .s3{grid-column:span 3} .s2{grid-column:span 2} .s4{grid-column:span 4}
+.hint{font-size:12px;color:var(--faint);min-height:18px}
+.hint.ok{color:var(--pass)} .hint.bad{color:var(--fail)}
+.out{min-height:40px;border:1px dashed var(--line-strong);border-radius:var(--r-sm);padding:7px 10px;display:flex;align-items:center;font-weight:600;font-variant-numeric:tabular-nums}
+
+/* summary */
+.summary{position:sticky;top:calc(env(safe-area-inset-top,0px) + 8px);z-index:5;padding:12px 16px;display:flex;flex-wrap:wrap;align-items:center;gap:12px 22px}
+.prog{flex:1 1 220px;min-width:0}
+.prog-top{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:6px}
+.prog-top b{color:var(--ink);font-variant-numeric:tabular-nums}
+.bar{height:8px;border-radius:99px;background:var(--na-soft);overflow:hidden;display:flex}
+.bar span{display:block;height:100%;transition:width .25s}
+.bar .y{background:var(--pass)} .bar .n{background:var(--fail)} .bar .a{background:var(--na)}
+.counts{display:flex;gap:16px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.counts b{font-variant-numeric:tabular-nums;color:var(--ink);font-size:15px;margin-left:4px}
+.counts .k::before{content:"";display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:1px}
+.k.y::before{background:var(--pass)} .k.n::before{background:var(--fail)} .k.a::before{background:var(--na)}
+.errtot{display:flex;align-items:baseline;gap:6px;font-size:13px;color:var(--muted)}
+.errtot b{font-size:22px;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 12px;font-weight:600;font-size:13.5px;white-space:nowrap}
+.pill::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+.pill.pend{background:var(--warn-soft);color:var(--warn)}
+.pill.pass{background:var(--pass-soft);color:var(--pass)}
+.pill.fail{background:var(--fail-soft);color:var(--fail)}
+
+/* checklist */
+.colhead{display:grid;grid-template-columns:3rem minmax(0,1fr) 13.5rem minmax(9rem,14rem) 5.5rem;gap:12px;padding:0 18px;font-size:12px;color:var(--faint);font-weight:600;letter-spacing:.03em}
+.colhead span:nth-child(3),.colhead span:nth-child(5){text-align:center}
+.sec{overflow:hidden}
+.sec-h{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;padding:12px 18px;background:color-mix(in srgb,var(--accent-soft) 45%,var(--sheet));border-bottom:1px solid var(--line)}
+.sec-t{display:flex;align-items:center;gap:10px;min-width:0;flex-wrap:wrap}
+.sec-n{font-family:var(--f-mono);font-size:13px;color:var(--accent);min-width:1.4rem}
+.sec-t h3{font-size:15.5px;margin:0;font-weight:600}
+.ref{font-size:12px;color:var(--faint)}
+.sec-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.sec-prog{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;margin-right:4px}
+.sec-prog.done{color:var(--pass);font-weight:600}
+.ghost{border:1px solid transparent;background:none;color:var(--accent);border-radius:6px;padding:4px 9px;font-size:12.5px;cursor:pointer;font-weight:500}
+.ghost:hover{border-color:var(--line-strong);background:var(--sheet)}
+.row{display:grid;grid-template-columns:3rem minmax(0,1fr) 13.5rem minmax(9rem,14rem) 5.5rem;grid-template-areas:"num txt seg note err";gap:12px;align-items:center;padding:10px 18px;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row .num{grid-area:num;font-family:var(--f-mono);font-size:12.5px;color:var(--muted)}
+.row .txt{grid-area:txt;min-width:0;font-size:14.5px}
+.row .seg{grid-area:seg}
+.row .note{grid-area:note}
+.row .errbox{grid-area:err}
+.row.is-no{background:var(--fail-soft)}
+.row.is-na .txt{color:var(--faint)}
+.seg{display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden;background:var(--sheet)}
+.seg button{border:0;background:none;padding:6px 0;cursor:pointer;font-size:13.5px;font-weight:500;color:var(--muted);border-left:1px solid var(--line)}
+.seg button:first-child{border-left:0}
+.seg button:hover{background:var(--paper);color:var(--ink)}
+.seg button[aria-pressed="true"][data-v="yes"]{background:var(--pass);color:#fff}
+.seg button[aria-pressed="true"][data-v="no"]{background:var(--fail);color:#fff}
+.seg button[aria-pressed="true"][data-v="na"]{background:var(--na);color:var(--sheet)}
+.note{width:100%;min-width:0;border:1px solid var(--line-strong);border-radius:var(--r-sm);padding:6px 9px;background:var(--sheet);font-size:13.5px}
+.errbox{display:flex;align-items:center;gap:6px}
+.errbox .lbl-m{display:none;font-size:12.5px;color:var(--muted)}
+.err{width:100%;border:1px solid var(--line-strong);border-radius:var(--r-sm);padding:6px 8px;background:var(--sheet);text-align:center;font-variant-numeric:tabular-nums}
+.err:disabled{opacity:.45;background:transparent}
+
+/* modal */
+.modal{position:fixed;inset:0;z-index:50;background:rgba(10,14,20,.55);display:flex;justify-content:center;padding:calc(env(safe-area-inset-top,0px) + 16px) 16px calc(env(safe-area-inset-bottom,0px) + 16px)}
+.modal-box{background:var(--sheet);border-radius:12px;width:min(880px,100%);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.modal-head{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line)}
+.modal-head h2{font-size:16px;margin:0;font-weight:600}
+.modal-head .sub{color:var(--muted);font-size:13px}
+.fname{display:flex;align-items:center;border:1px solid var(--line-strong);border-radius:var(--r-sm);overflow:hidden;flex:1 1 260px;min-width:0}
+.fname input{border:0;padding:7px 10px;font-family:var(--f-mono);font-size:13px;flex:1;min-width:0;background:var(--sheet)}
+.fname span{font-family:var(--f-mono);font-size:13px;color:var(--muted);padding:0 10px 0 0}
+.pages{overflow:auto;padding:20px;background:var(--paper);display:flex;flex-direction:column;align-items:center;gap:18px;flex:1}
+.pages canvas{width:min(640px,100%);height:auto;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.18);border-radius:2px}
+.loading{color:var(--muted);padding:40px 0}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 20px);background:var(--ink);color:var(--sheet);padding:10px 16px;border-radius:8px;font-size:14px;z-index:60;max-width:calc(100% - 32px);box-shadow:0 6px 20px rgba(0,0,0,.25)}
+
+@media (max-width: 1080px){
+  .colhead{display:none}
+  .row{grid-template-columns:2.6rem minmax(0,1fr) 6rem;grid-template-areas:"num txt txt" "num seg err" "num note note";row-gap:8px}
+  .row .seg{max-width:15rem}
+  .errbox .lbl-m{display:inline}
+  .errbox{justify-self:end}
+  .err{width:3.6rem}
+}
+@media (max-width: 900px){
+  .layout{grid-template-columns:minmax(0,1fr)}
+  .side{position:static;max-height:none}
+  .doc-list{max-height:260px}
+  .s6,.s3,.s4{grid-column:span 12} .s2{grid-column:span 6}
+  .summary{top:calc(env(safe-area-inset-top,0px) + 4px)}
+}
+@media (max-width: 520px){
+  .top-actions{margin-left:0;width:100%}
+  .top-actions .btn{flex:1;justify-content:center}
+  .row{grid-template-columns:2.2rem minmax(0,1fr) 5.6rem;padding:10px 12px}
+  .sec-h{padding:10px 12px}
+  .info{padding:16px 14px}
+  .ref-chip{display:none}
+}
+@media (prefers-reduced-motion: reduce){ .bar span{transition:none} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="mark" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6M9 4a2 2 0 0 0-2 2H6a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1a2 2 0 0 0-2-2"/><path d="m8.5 13.5 2.5 2.5 4.5-5"/></svg>
+      </div>
+      <div>
+        <h1>Doc Checklist</h1>
+        <p>ตรวจเอกสารตาม Document Standard ทีม Stealth Trade</p>
+      </div>
+    </div>
+    <span class="ref-chip" id="refChip">DS V2.2.0</span>
+    <div class="top-actions">
+      <button class="btn" id="resetBtn" type="button">ล้างผลการตรวจ</button>
+      <button class="btn" id="previewBtn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+        ดูตัวอย่าง PDF</button>
+      <button class="btn primary" id="downloadBtn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-4.5-4.5M12 15l4.5-4.5M4 19h16"/></svg>
+        ดาวน์โหลด PDF</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="side" aria-label="รายชื่อเอกสาร">
+      <div class="side-head">
+        <h2>รายชื่อเอกสาร</h2>
+        <div class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="search" type="search" placeholder="ค้นหารหัสหรือชื่อเอกสาร" autocomplete="off">
+        </div>
+      </div>
+      <nav class="doc-list" id="docList"></nav>
+    </aside>
+
+    <main class="main">
+      <section class="card info" aria-labelledby="docName">
+        <div class="doc-title">
+          <span class="code-badge" id="docCode">DS</span>
+          <div>
+            <h2 id="docName">Document Standard</h2>
+            <div class="grp-lbl" id="docGroup"></div>
+          </div>
+        </div>
+        <div class="fields">
+          <div class="f s6">
+            <label for="f-fileName">ชื่อเอกสาร (ชื่อไฟล์ที่ตรวจ)</label>
+            <input id="f-fileName" class="mono" type="text" placeholder="เช่น 2569-10-05_TP_V1.2.0" autocomplete="off">
+            <div class="hint" id="fileHint">กรอกชื่อไฟล์เพื่อตรวจรูปแบบ YYYY-MM-DD_ID_Version ให้อัตโนมัติ</div>
+          </div>
+          <div class="f s6">
+            <label for="f-author">ผู้จัดทำ</label>
+            <input id="f-author" type="text" list="members" placeholder="พิมพ์หรือเลือกชื่อสมาชิก" autocomplete="off">
+          </div>
+          <div class="f s6">
+            <label for="f-ref">เอกสารที่อ้างอิง</label>
+            <input id="f-ref" class="mono" type="text" autocomplete="off">
+          </div>
+          <div class="f s6">
+            <label for="f-qa">QA ผู้ตรวจ</label>
+            <input id="f-qa" type="text" list="members" placeholder="พิมพ์หรือเลือกชื่อสมาชิก" autocomplete="off">
+          </div>
+          <div class="f s2">
+            <label for="f-cycle">Cycle</label>
+            <select id="f-cycle"><option value="">–</option><option value="1">1</option><option value="2">2</option></select>
+          </div>
+          <div class="f s2">
+            <label for="f-sprint">Sprint</label>
+            <select id="f-sprint"></select>
+          </div>
+          <div class="f s4">
+            <label for="f-date">วันที่ตรวจ</label>
+            <input id="f-date" type="date">
+          </div>
+          <div class="f s2">
+            <span class="lbl">จำนวนที่ผิดพลาด</span>
+            <div class="out" id="outErr">0</div>
+          </div>
+          <div class="f s2">
+            <span class="lbl">ผลการตรวจ</span>
+            <div class="out" id="outResult">–</div>
+          </div>
+        </div>
+        <datalist id="members"></datalist>
+      </section>
+
+      <section class="card summary" aria-label="สรุปผลการตรวจ">
+        <div class="prog">
+          <div class="prog-top"><span>ตรวจแล้ว <b id="sChecked">0</b> / <b id="sTotal">0</b> ข้อ</span><span id="sPct">0%</span></div>
+          <div class="bar" aria-hidden="true"><span class="y" id="bY"></span><span class="n" id="bN"></span><span class="a" id="bA"></span></div>
+        </div>
+        <div class="counts">
+          <span class="k y">มี<b id="sYes">0</b></span>
+          <span class="k n">ไม่มี<b id="sNo">0</b></span>
+          <span class="k a">N/A<b id="sNa">0</b></span>
+        </div>
+        <div class="errtot">ข้อผิดพลาดรวม <b id="sErr">0</b></div>
+        <span class="pill pend" id="sResult">ยังตรวจไม่ครบ</span>
+      </section>
+
+      <div class="colhead" aria-hidden="true"><span>ข้อ</span><span>รายการตรวจสอบ</span><span>การใช้งาน</span><span>รายละเอียด</span><span>ข้อผิดพลาด</span></div>
+      <div id="sections" class="main"></div>
+    </main>
+  </div>
+</div>
+
+<div class="modal" id="modal" hidden role="dialog" aria-modal="true" aria-labelledby="mTitle">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <h2 id="mTitle">ตัวอย่าง PDF</h2>
+        <div class="sub" id="mSub">กำลังสร้าง…</div>
+      </div>
+      <div class="fname"><input id="f-pdfName" type="text" aria-label="ชื่อไฟล์ PDF"><span>.pdf</span></div>
+      <button class="btn primary" id="mDownload" type="button">ดาวน์โหลด PDF</button>
+      <button class="btn" id="mClose" type="button">ปิด</button>
+    </div>
+    <div class="pages" id="pages"><div class="loading">กำลังจัดหน้าเอกสาร…</div></div>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+(() => {
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------- data from Document Standard V2.2.0 ---------- */
+const REF_DEFAULT = '2569-10-11_DS_V2.2.0';
+const MEMBERS = [
+  ['นายปรเมษฐ ศิริรัตน์','Team Leader'],['นายณทชัย อินจา','Plan Manager'],['นายฉัตรชัย วิเศษโวหาร','Plan Engineer'],
+  ['นายอนุศักดิ์ ทรัพย์การ์ณ','Development Manager'],['นายภูมิพัฒน์ รื่นรวย','Development Engineer'],['นายภควัต ศรีบุษย์','Development Engineer'],
+  ['นางสาววิมลวรรณ แซ่จิว','Quality Manager'],['นางสาวพรพิมล ค้ำชู','Quality Engineer'],['นายฐาปกรณ์ โสวรรณะ','Quality Engineer'],
+  ['นายอานันท์วัฒน์ พลตะคุ','Support Manager'],['นายพงศ์พสุ บุญครอง','Support Engineer']
+];
+const GROUPS = [
+  {name:'การประชุม', docs:[['AMPO','Agenda of Meeting of PO'],['AMT','Agenda of Meeting Team'],['MIPO','Meeting Invite Product Owner'],['MIT','Meeting Invite Team'],['MRPO','Meeting Report Product Owner'],['MRT','Meeting Report Team'],['IM','Inspection Meeting']]},
+  {name:'ความต้องการ', docs:[['RD','Requirements Document'],['SRSD','Software Requirement Specification Document'],['US','User Story'],['RP','Requirement Prototype'],['TM','Traceability Matrix'],['SDAD','System Design Acceptance Document'],['AP','Approve Form']]},
+  {name:'การออกแบบระบบ', docs:[['UCD','Use Case Diagram'],['UCDS','Use Case Description'],['AD','Activity Diagram'],['SD','Sequence Diagram'],['CD','Class Diagram'],['SMD','State Machine Diagram'],['ERD','Entity Relationship Diagram'],['DD','Data Dictionary'],['SM','Site Map']]},
+  {name:'การทดสอบและคุณภาพ', docs:[['TP','Test Plan'],['TS','Test Scenario'],['TC','Test Case'],['TSC','Test Script'],['CL','Checklist'],['DTS','Defect Type Standard'],['IC','Inspection Coding'],['RVD','Revised Document']]},
+  {name:'การวางแผนและติดตาม', docs:[['PP','Personal Plan'],['PSR','Plan Summary Report'],['WBS','Work Breakdown Structure'],['DOW','Division Of Workload'],['GC','Gantt Chart'],['MS','Milestone'],['MC','Master Chart'],['DC','Detail Chart'],['BC','Burndown Chart'],['VLC','Velocity Chart'],['RM','Risk Management'],['TG','Team Goal'],['RG','Role Goal'],['MG','Member Goal']]},
+  {name:'มาตรฐานและคู่มือ', docs:[['DS','Document Standard'],['CS','Coding Standard'],['UXIS','UX/UI Standard'],['VC','Version Control'],['APID','API Document'],['CM','Configuration Manual'],['INM','Introduction Manual'],['UM','User Manual']]},
+];
+const DOCS = {};
+GROUPS.forEach(g => g.docs.forEach(([code, name]) => DOCS[code] = {code, name, group:g.name}));
+
+const MEETING = new Set(['AMPO','AMT','MIPO','MIT','MRPO','MRT']);
+const INVITE = new Set(['AMPO','AMT','MIPO','MIT']);
+const REPORT = new Set(['MRPO','MRT','IM']);
+const CHART = new Set(['GC','MS','MC','DC','BC','VLC']);
+
+const SEC = {
+  naming: code => ({key:'naming', title:'การตั้งชื่อไฟล์เอกสาร', ref:'DS ข้อ 3', items:[
+    'ชื่อไฟล์ใช้รูปแบบ ปี-เดือน-วัน_รหัสเอกสาร_เวอร์ชัน (YYYY-MM-DD_ID_Version)',
+    `รหัสเอกสารในชื่อไฟล์เป็น "${code}" ตามตารางรหัสเอกสาร`,
+    ...(MEETING.has(code) ? ['ระบุครั้งที่ต่อท้ายรหัสเอกสาร (YYYY-MM-DD_ID_ครั้งที่N_Version)'] : [])
+  ]}),
+  version: {key:'version', title:'การควบคุมเวอร์ชัน', ref:'DS ข้อ 3', items:[
+    'เลขเวอร์ชันมี 3 หลัก (X.x.x)',
+    'หลักที่หนึ่ง (X.x.x) ขึ้นเมื่อ PO รับรอง หรือแก้เนื้อหาเกินครึ่งหนึ่งของบทใดบทหนึ่ง',
+    'หลักที่สอง (x.X.x) ขึ้นเมื่อแก้ไขหรือเพิ่มเติมหัวข้อย่อย',
+    'หลักที่สาม (x.x.X) ขึ้นเมื่อแก้คำตก คำผิด การเว้นวรรค หรือระยะห่างบรรทัด'
+  ]},
+  page: {key:'page', title:'หน้ากระดาษและขอบกระดาษ', ref:'DS ข้อ 1', items:[
+    'ตั้งค่าหน้ากระดาษขนาด A4 (8.27" x 11.69")',
+    'ระยะขอบบน 1.5 นิ้ว (3.81 ซม.)',
+    'ระยะขอบซ้าย 1.5 นิ้ว (3.81 ซม.)',
+    'ระยะขอบขวา 1 นิ้ว (2.54 ซม.)',
+    'ระยะขอบล่าง 1 นิ้ว (2.54 ซม.)'
+  ]},
+  font: {key:'font', title:'ตัวพิมพ์และขนาดตัวพิมพ์', ref:'DS ข้อ 2', items:[
+    'ใช้ตัวพิมพ์ TH SarabunPSK ทั้งเอกสาร',
+    'หัวเรื่องขนาด 20 pt ตัวหนา',
+    'หัวข้อขนาด 18 pt ตัวหนา',
+    'หัวข้อย่อยขนาด 16 pt ตัวหนา',
+    'เนื้อหาขนาด 16 pt ตัวปกติ (Regular)'
+  ]},
+  spacing: {key:'spacing', title:'ระยะห่างระหว่างบรรทัด', ref:'DS ข้อ 4', items:[
+    'เนื้อหาใช้ระยะบรรทัด Single (1.0) ก่อนย่อหน้า 0 pt หลังย่อหน้า 8 pt',
+    'หัวเรื่องเว้นก่อนย่อหน้า 16 pt หลังย่อหน้า 2 pt',
+    'หัวข้อเว้นก่อนย่อหน้า 6 pt หลังย่อหน้า 2 pt'
+  ]},
+  pagenum: {key:'pagenum', title:'หมายเลขหน้า', ref:'DS ข้อ 5', items:[
+    'เริ่มเลขหน้า 1, 2, 3 ตั้งแต่หน้า "บทนำ" (ส่วนก่อนหน้าใช้ ก, ข, ค ได้)',
+    'เลขหน้าอยู่มุมขวาบนในส่วน Header จัดชิดขวา',
+    'เลขหน้าใช้ TH SarabunPSK ขนาด 16 pt เหมือนเนื้อหา'
+  ]},
+  writing: {key:'writing', title:'การเขียนและการเว้นวรรค', ref:'DS ข้อ 7', items:[
+    'ข้อหลักเว้นแท็บ (Tab) 1 ครั้งก่อนขึ้นข้อแรก',
+    'ตัวเลขข้อย่อยตรงกับตัวอักษรตัวแรกของข้อหลัก',
+    'ข้อย่อยแบบตัวเลขไม่เกิน 3 ระดับ (1, 1.1, 1.1.1)',
+    'ใช้ "และ" หรือ "หรือ" หน้ารายการสุดท้ายเท่านั้น และเว้นวรรคข้างหน้า',
+    'คำว่า "คือ" และ "เช่น" เว้นวรรคหน้าและหลัง',
+    'วงเล็บเว้นวรรคหน้าและหลัง เช่น แถว (Row) คือ …',
+    'ไปยาลน้อย (ฯ) เว้นวรรคหลัง ไปยาลใหญ่ (ฯลฯ) เว้นวรรคหน้าและหลัง',
+    'ไม้ยมก (ๆ) เว้นวรรคหน้าและหลัง',
+    'รายการไม่เรียงลำดับที่มีมากกว่า 3 รายการ แยกบรรทัดและนำหน้าด้วยยัติภังค์ (-)',
+    'จุลภาค (,) ใช้คั่นเฉพาะคำภาษาอังกฤษหรือตัวเลขลำดับ รายการภาษาไทยคั่นด้วยการเว้นวรรค'
+  ]},
+  table: {key:'table', title:'ตาราง', ref:'DS ข้อ 13', items:[
+    'หัวข้อตารางจัดกึ่งกลางและเป็นตัวหนา',
+    'ลำดับเลขในตารางจัดกึ่งกลาง',
+    'ชื่อตารางอยู่เหนือตาราง ชิดซ้าย',
+    'เลขตารางใช้ "ตาราง [ลำดับ]" หรือ "ตาราง [บท]-[ลำดับ]" สำหรับเอกสารที่แบ่งบท'
+  ]},
+  image: {key:'image', title:'ภาพ', ref:'DS ข้อ 14', items:[
+    'ชื่อภาพอยู่ใต้ภาพ จัดกึ่งกลาง รูปแบบ "ภาพ [ลำดับ] [ชื่อภาพ]"',
+    'ภาพจัดกึ่งกลางหน้ากระดาษ',
+    'ใส่ชื่อภาพด้วยคำสั่ง Insert Caption',
+    'มีสารบัญภาพต่อจากสารบัญตาราง'
+  ]},
+  invite: {key:'invite', title:'หนังสือเชิญประชุมและวาระการประชุม', ref:'DS ข้อ 11', items:[
+    'ระบุครั้งที่และวันที่ประชุมชัดเจน พร้อมกั้นหน้า-กั้นหลังข้อความ',
+    'ระบุชื่อผู้เปิดการประชุม',
+    'ระบุสถานที่ประชุม หรือช่องทางการประชุมออนไลน์',
+    'ระบุเวลาเริ่มต้นและเวลาสิ้นสุดการประชุม',
+    'วาระเรียงลำดับเลข (วาระที่ 1, วาระที่ 2, …)',
+    'แต่ละวาระมีชื่อหัวข้อชัดเจน (แจ้งเพื่อทราบ รับรองรายงาน สืบเนื่อง เสนอเพื่อพิจารณา และเรื่องอื่น ๆ)',
+    'วาระที่ไม่มีเรื่อง ระบุข้อความว่า "ไม่มี"'
+  ]},
+  report: {key:'report', title:'รายงานการประชุม', ref:'DS ข้อ 12', items:[
+    'เนื้อหาเรียงตามลำดับวาระในวาระการประชุม',
+    'แต่ละวาระระบุผู้เสนอวาระ',
+    'แต่ละวาระสรุปประเด็นที่เสนอ',
+    'แต่ละวาระระบุมติที่ประชุม',
+    'ระบุเวลาเริ่มประชุมและปิดประชุมชัดเจน',
+    'ผู้เข้าร่วมลงชื่อ และมีหมายเหตุสำหรับผู้ไม่เข้าร่วม',
+    'ผู้บันทึกรายงานลงลายมือชื่อยืนยัน',
+    'ผู้ตรวจสอบรายงานลงลายมือชื่อรับรอง',
+    'ประธานการประชุมลงลายมือชื่อรับรอง'
+  ]},
+};
+const DIAGRAM = {
+  UCD: {key:'ucd', title:'แผนภาพยูสเคส (Use Case Diagram)', ref:'DS ข้อ 6.1', items:[
+    'ผู้ใช้งานใช้สัญลักษณ์รูปคน และระบุชื่อ Actor ใต้สัญลักษณ์',
+    'มีกรอบสี่เหลี่ยมแสดงขอบเขตระหว่างระบบกับผู้ใช้งาน',
+    'ใช้วงรีแทนการทำงานของระบบ',
+    'มีเส้นเชื่อมระหว่างผู้ใช้กับระบบ',
+    'ชื่อ Use Case ขึ้นต้นด้วยคำกริยา ตามด้วยคำนาม',
+    '<<include>> และ <<extend>> ใช้เส้นประหัวลูกศร ชื่อความสัมพันธ์เป็นตัวพิมพ์เล็ก',
+    'ลูกศร <<include>> ชี้จาก Use Case หลักไปยัง Use Case ที่ถูกเรียกใช้',
+    'ลูกศร <<extend>> ชี้จาก Use Case ส่วนขยายไปยัง Use Case หลัก',
+    'ชื่อ Actor เป็นภาษาไทย'
+  ]},
+  UCDS: {key:'ucds', title:'คำอธิบายยูสเคส (Use Case Description)', ref:'DS ข้อ 6.1', items:[
+    'Actor สอดคล้องกับ Use Case',
+    'ขั้นตอนการทำงานตรงกับ Activity Diagram',
+    'ระบุรหัส Use Case ครบถ้วน'
+  ]},
+  AD: {key:'ad', title:'แผนภาพกิจกรรม (Activity Diagram)', ref:'DS ข้อ 6.1', items:[
+    'ส่วนหัวมีเฉพาะผู้ติดต่อ (Actor) และระบบ (System)',
+    'กิจกรรมเขียนเป็น ประธาน + กริยา',
+    'เงื่อนไขเขียนเป็น กริยา + กรรม',
+    'ชื่อ Actor เป็นภาษาไทย',
+    'เงื่อนไขเป็นภาษาไทย และใช้คำว่า "จริง" และ "เท็จ"'
+  ]},
+  SD: {key:'sd', title:'แผนภาพลำดับ (Sequence Diagram)', ref:'DS ข้อ 6.1', items:[
+    'ส่วนหัวมี Actor และ Object เรียงจากซ้ายไปขวาตามลำดับการทำงาน',
+    'Message ใช้เส้นทึบหัวลูกศรทึบ และตั้งชื่อเป็น กริยา + กรรม',
+    'Return Message ใช้เส้นประหัวลูกศรเปิด',
+    'ใช้กรอบ alt สำหรับเงื่อนไข และกรอบ loop สำหรับการทำงานซ้ำ',
+    'ชื่อ Actor และ Object สอดคล้องกับ Use Case Diagram และ Class Diagram',
+    'ชื่อ Actor เป็นภาษาไทย'
+  ]},
+  CD: {key:'cd', title:'แผนภาพคลาส (Class Diagram)', ref:'DS ข้อ 6.1', items:[
+    'คลาสเป็นสี่เหลี่ยม 3 ช่อง ได้แก่ ชื่อคลาส คุณลักษณะ (Attribute) และเมธอด (Method)',
+    'ชื่อคลาสเป็นคำนามแบบ PascalCase เช่น UserAccount',
+    'Attribute และ Method เป็น camelCase พร้อมชนิดข้อมูล เช่น userName : String',
+    'ระบุ Visibility ได้แก่ + (public) - (private) และ # (protected)',
+    'ระบุ Multiplicity ที่ปลายเส้นทั้งสองด้าน เช่น 1 และ 0..*',
+    'ชื่อคลาส เมธอด และฟิลด์เป็นภาษาอังกฤษ'
+  ]},
+  SMD: {key:'smd', title:'แผนภาพสถานะ (State Machine Diagram)', ref:'DS ข้อ 6.1', items:[
+    'มี Initial State 1 จุด และ Final State อย่างน้อย 1 จุด',
+    'สถานะเป็นสี่เหลี่ยมมุมมน ชื่อบอกสภาพของข้อมูล เช่น รอชำระเงิน',
+    'Transition ระบุเป็น เหตุการณ์ [เงื่อนไข] เช่น ชำระเงิน [ยอดเงินเพียงพอ]',
+    'ทุกสถานะยกเว้นจุดสิ้นสุด มีเส้นเปลี่ยนสถานะออกอย่างน้อย 1 เส้น',
+    'เงื่อนไขเป็นภาษาไทย'
+  ]},
+  ERD: {key:'erd', title:'แผนภาพความสัมพันธ์ของข้อมูล (ERD)', ref:'DS ข้อ 6.1', items:[
+    'ชื่อตารางใช้ ชื่อระบบตัวพิมพ์เล็ก_ชื่องาน',
+    'ชื่อฟิลด์ใช้ ชื่อย่อตาราง_ชื่อข้อมูล',
+    'ชื่อตารางและฟิลด์เป็นภาษาอังกฤษ'
+  ]},
+  DD: {key:'dd', title:'พจนานุกรมข้อมูล (Data Dictionary)', ref:'DS ข้อ 6.1', items:[
+    '1 ตารางต่อ 1 ตารางในฐานข้อมูล และใช้ชื่อตารางตามข้อ 6.1.4',
+    'ระบุชื่อฟิลด์ ชนิดข้อมูล และขนาดของข้อมูล',
+    'ระบุคีย์หลัก (PK) และคีย์นอก (FK) พร้อมตารางที่อ้างอิง',
+    'ระบุว่าฟิลด์เป็นค่าว่าง (Null) ได้หรือไม่ และคำอธิบายฟิลด์',
+    'ชื่อฟิลด์เป็นภาษาอังกฤษ'
+  ]},
+  SM: {key:'sm', title:'แผนผังเว็บไซต์ (Site Map)', ref:'DS ข้อ 6.1', items:[
+    'แสดงเป็นแผนภาพต้นไม้ เริ่มจากหน้าแรกลงไปตามลำดับชั้น',
+    'ชื่อหน้าตรงกับชื่อหน้าจอในเอกสารการออกแบบหน้าจอ'
+  ]},
+  RP: {key:'rp', title:'การออกแบบหน้าจอ (UX/UI)', ref:'DS ข้อ 6.1', items:[
+    'การออกแบบหน้าจอเป็นไปตาม UX/UI Standard (UXIS)',
+    'ชื่อหน้าจอตรงกับแผนผังเว็บไซต์ (Site Map)'
+  ]},
+};
+
+function sectionsFor(code){
+  const base = [SEC.naming(code), SEC.version, SEC.page, SEC.font, SEC.spacing, SEC.pagenum];
+  let extra;
+  if (INVITE.has(code)) extra = [SEC.invite, SEC.table];
+  else if (REPORT.has(code)) extra = [SEC.report, SEC.table];
+  else if (DIAGRAM[code] && code !== 'RP') extra = [DIAGRAM[code], ...(code === 'UCDS' || code === 'DD' ? [SEC.table] : []), SEC.image];
+  else if (code === 'RP') extra = [DIAGRAM.RP, SEC.image];
+  else if (CHART.has(code)) extra = [SEC.table, SEC.image];
+  else extra = [SEC.writing, SEC.table, SEC.image];
+  return base.concat(extra);
+}
+
+/* ---------- state ---------- */
+const STORE_KEY = 'st-doc-checklist-v1';
+const TH_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+function todayISO(){ const t = new Date(); return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`; }
+function thDate(iso){ if (!iso) return '-'; const [y,m,d] = iso.split('-').map(Number); return `${d} ${TH_MONTHS[m-1]} ${y+543}`; }
+function beStamp(iso){ const [y,m,d] = (iso || todayISO()).split('-'); return `${+y+543}-${m}-${d}`; }
+
+let state = { doc:'DS', info:{ fileName:'', ref:REF_DEFAULT, author:'', qa:'', cycle:'', sprint:'', date:todayISO() }, checks:{}, files:{} };
+try {
+  const saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+  if (saved && saved.info) { state = Object.assign(state, saved); state.info = Object.assign({}, state.info, saved.info); if (!DOCS[state.doc]) state.doc = 'DS'; }
+} catch (e) {}
+state.files = state.files || {};
+let saveT;
+function persist(){ clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {} }, 250); }
+function checksOf(code){ return state.checks[code] || (state.checks[code] = {}); }
+
+let currentSections = [];
+
+/* ---------- stats ---------- */
+function statsFor(code){
+  const secs = sectionsFor(code); const ch = state.checks[code] || {};
+  let total = 0, yes = 0, no = 0, na = 0, err = 0;
+  secs.forEach(s => s.items.forEach((_, i) => {
+    total++; const c = ch[`${s.key}.${i}`];
+    if (!c || !c.s) return;
+    if (c.s === 'yes') yes++; else if (c.s === 'na') na++;
+    else if (c.s === 'no') { no++; err += Math.max(0, parseInt(c.err, 10) || 0); }
+  }));
+  const checked = yes + no + na;
+  let result = 'pend', label = 'ยังตรวจไม่ครบ';
+  if (checked === total) { if (no === 0) { result = 'pass'; label = 'ผ่าน'; } else { result = 'fail'; label = 'ไม่ผ่าน'; } }
+  return {total, yes, no, na, err, checked, result, label};
+}
+
+/* ---------- sidebar ---------- */
+function renderDocList(){
+  const q = $('#search').value.trim().toLowerCase();
+  const out = [];
+  GROUPS.forEach(g => {
+    const docs = g.docs.filter(([c, n]) => !q || c.toLowerCase().includes(q) || n.toLowerCase().includes(q));
+    if (!docs.length) return;
+    out.push(`<div class="grp">${esc(g.name)}</div>`);
+    docs.forEach(([c, n]) => {
+      const st = state.checks[c] && Object.keys(state.checks[c]).length ? statsFor(c) : null;
+      const dot = !st || !st.checked ? '' : st.result === 'pass' ? 'ok' : st.result === 'fail' ? 'bad' : 'p';
+      out.push(`<button type="button" class="doc" data-code="${c}" aria-current="${c === state.doc}" title="${esc(c + ' – ' + n)}"><span class="code">${c}</span><span class="nm">${esc(n)}</span><span class="dot ${dot}"></span></button>`);
+    });
+  });
+  $('#docList').innerHTML = out.join('') || '<div class="empty-search">ไม่พบเอกสารที่ตรงกับคำค้น</div>';
+}
+$('#search').addEventListener('input', renderDocList);
+$('#docList').addEventListener('click', e => {
+  const b = e.target.closest('.doc'); if (!b) return;
+  if (b.dataset.code === state.doc) return;
+  state.files[state.doc] = state.info.fileName;
+  state.doc = b.dataset.code;
+  state.info.fileName = state.files[state.doc] || '';
+  $('#f-fileName').value = state.info.fileName;
+  persist(); renderDoc();
+  if (window.matchMedia('(max-width: 900px)').matches) $('.info').scrollIntoView({behavior:'smooth', block:'start'});
+});
+
+/* ---------- header form ---------- */
+const FIELDS = ['fileName','ref','author','qa','cycle','sprint','date'];
+function fillSprints(){
+  const sel = $('#f-sprint'); const cyc = state.info.cycle;
+  const [a, b] = cyc === '1' ? [1, 8] : cyc === '2' ? [9, 16] : [1, 16];
+  let html = '<option value="">–</option>';
+  for (let i = a; i <= b; i++) html += `<option value="${i}">${i}</option>`;
+  sel.innerHTML = html;
+  if (state.info.sprint && (+state.info.sprint < a || +state.info.sprint > b)) state.info.sprint = '';
+  sel.value = state.info.sprint || '';
+}
+function initForm(){
+  $('#members').innerHTML = MEMBERS.map(([n, r]) => `<option value="${esc(n)}">${esc(r)}</option>`).join('');
+  FIELDS.forEach(k => { const el = $('#f-' + k); if (k !== 'sprint') el.value = state.info[k] || ''; });
+  fillSprints();
+  FIELDS.forEach(k => {
+    const el = $('#f-' + k);
+    el.addEventListener(el.tagName === 'SELECT' || el.type === 'date' ? 'change' : 'input', () => {
+      state.info[k] = el.value;
+      if (k === 'cycle') fillSprints();
+      if (k === 'fileName') checkFileName();
+      if (k === 'ref') updateRefChip();
+      persist();
+    });
+  });
+  updateRefChip();
+}
+function updateRefChip(){
+  const m = /_DS_V?(\d+\.\d+\.\d+)/i.exec(state.info.ref || '');
+  $('#refChip').textContent = m ? `DS V${m[1]}` : (state.info.ref ? state.info.ref : 'ไม่ระบุเอกสารอ้างอิง');
+}
+function checkFileName(){
+  const hint = $('#fileHint'); const v = (state.info.fileName || '').trim().replace(/\.(docx?|pdf|xlsx?|pptx?)$/i, '');
+  hint.className = 'hint';
+  if (!v) { hint.textContent = 'กรอกชื่อไฟล์เพื่อตรวจรูปแบบ YYYY-MM-DD_ID_Version ให้อัตโนมัติ'; return; }
+  const m = /^(\d{4})-(\d{2})-(\d{2})_([A-Za-z]+)(_ครั้งที่\s?\d+)?_V(\d+)\.(\d+)\.(\d+)$/.exec(v);
+  if (!m) { hint.className = 'hint bad'; hint.textContent = 'ไม่ตรงรูปแบบ YYYY-MM-DD_ID_Version เช่น 2569-10-05_TP_V1.2.0'; return; }
+  const mo = +m[2], d = +m[3];
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) { hint.className = 'hint bad'; hint.textContent = `วันที่ในชื่อไฟล์ไม่ถูกต้อง (${m[1]}-${m[2]}-${m[3]})`; return; }
+  if (m[4] !== state.doc) { hint.className = 'hint bad'; hint.textContent = `รหัสในชื่อไฟล์คือ "${m[4]}" แต่เอกสารที่เลือกคือ "${state.doc}"`; return; }
+  if (MEETING.has(state.doc) && !m[5]) { hint.className = 'hint bad'; hint.textContent = 'เอกสารการประชุมต้องระบุครั้งที่ เช่น _ครั้งที่1_'; return; }
+  hint.className = 'hint ok'; hint.textContent = `ตรงรูปแบบ · เวอร์ชัน ${m[6]}.${m[7]}.${m[8]}`;
+}
+
+/* ---------- checklist ---------- */
+function renderDoc(){
+  const d = DOCS[state.doc];
+  $('#docCode').textContent = d.code; $('#docName').textContent = d.name; $('#docGroup').textContent = `หมวด${d.group} · รายการตรวจสร้างจาก Document Standard`;
+  checkFileName(); renderDocList(); renderChecklist();
+}
+function renderChecklist(){
+  const wrap = $('#sections'); wrap.innerHTML = '';
+  currentSections = sectionsFor(state.doc);
+  currentSections.forEach((sec, si) => {
+    const el = document.createElement('section'); el.className = 'card sec';
+    el.innerHTML = `<header class="sec-h"><div class="sec-t"><span class="sec-n">${si+1}</span><h3>${esc(sec.title)}</h3><span class="ref">${esc(sec.ref)}</span></div>
+      <div class="sec-tools"><span class="sec-prog" data-prog="${sec.key}"></span>
+      <button type="button" class="ghost" data-bulk="yes" data-sec="${sec.key}">ข้อที่เหลือ = มี</button>
+      <button type="button" class="ghost" data-bulk="na" data-sec="${sec.key}">ทั้งหมวด N/A</button></div></header>`;
+    const rows = document.createElement('div'); rows.className = 'rows';
+    sec.items.forEach((t, ii) => {
+      const id = `${sec.key}.${ii}`; const n = `${si+1}.${ii+1}`;
+      const row = document.createElement('div'); row.className = 'row'; row.dataset.id = id;
+      row.innerHTML = `<div class="num">${n}</div><div class="txt">${esc(t)}</div>
+        <div class="seg" role="group" aria-label="การใช้งาน ข้อ ${n}"><button type="button" data-v="yes">มี</button><button type="button" data-v="no">ไม่มี</button><button type="button" data-v="na">N/A</button></div>
+        <input class="note" id="note-${state.doc}-${id}" type="text" placeholder="รายละเอียด / หน้าที่พบ" aria-label="รายละเอียด ข้อ ${n}">
+        <label class="errbox"><span class="lbl-m">ผิดพลาด</span><input class="err" id="err-${state.doc}-${id}" type="number" min="0" step="1" inputmode="numeric" aria-label="จำนวนข้อผิดพลาด ข้อ ${n}"></label>`;
+      rows.append(row); syncRow(row);
+    });
+    el.append(rows); wrap.append(el);
+  });
+  updateSummary();
+}
+function syncRow(row){
+  const c = checksOf(state.doc)[row.dataset.id] || {};
+  row.classList.toggle('is-yes', c.s === 'yes'); row.classList.toggle('is-no', c.s === 'no'); row.classList.toggle('is-na', c.s === 'na');
+  row.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === c.s)));
+  const note = row.querySelector('.note'); if (document.activeElement !== note) note.value = c.note || '';
+  const err = row.querySelector('.err'); err.disabled = c.s !== 'no';
+  if (document.activeElement !== err) err.value = c.s === 'no' ? (c.err ?? 1) : '';
+}
+function setCheck(id, patch){
+  const ch = checksOf(state.doc); ch[id] = Object.assign({}, ch[id], patch);
+  const c = ch[id]; if (!c.s && !c.note) delete ch[id];
+  persist();
+}
+$('#sections').addEventListener('click', e => {
+  const sb = e.target.closest('.seg button');
+  if (sb) {
+    const row = sb.closest('.row'); const id = row.dataset.id; const cur = (checksOf(state.doc)[id] || {}).s;
+    const v = cur === sb.dataset.v ? null : sb.dataset.v;
+    const patch = {s:v}; if (v === 'no') { const prev = (checksOf(state.doc)[id] || {}).err; patch.err = prev > 0 ? prev : 1; }
+    setCheck(id, patch); syncRow(row); updateSummary();
+    if (v === 'no') row.querySelector('.note').focus();
+    return;
+  }
+  const bulk = e.target.closest('[data-bulk]');
+  if (bulk) {
+    const sec = currentSections.find(s => s.key === bulk.dataset.sec); const ch = checksOf(state.doc);
+    sec.items.forEach((_, i) => {
+      const id = `${sec.key}.${i}`;
+      if (bulk.dataset.bulk === 'yes') { if (!ch[id] || !ch[id].s) setCheck(id, {s:'yes'}); }
+      else setCheck(id, {s:'na'});
+    });
+    bulk.closest('.sec').querySelectorAll('.row').forEach(syncRow); updateSummary();
+  }
+});
+$('#sections').addEventListener('input', e => {
+  const row = e.target.closest('.row'); if (!row) return;
+  if (e.target.classList.contains('note')) setCheck(row.dataset.id, {note:e.target.value});
+  if (e.target.classList.contains('err')) { const v = Math.max(0, parseInt(e.target.value, 10) || 0); setCheck(row.dataset.id, {err:v}); updateSummary(); }
+});
+
+function updateSummary(){
+  const st = statsFor(state.doc);
+  $('#sTotal').textContent = st.total; $('#sChecked').textContent = st.checked;
+  $('#sPct').textContent = Math.round(st.checked / st.total * 100) + '%';
+  $('#sYes').textContent = st.yes; $('#sNo').textContent = st.no; $('#sNa').textContent = st.na; $('#sErr').textContent = st.err;
+  $('#bY').style.width = (st.yes / st.total * 100) + '%'; $('#bN').style.width = (st.no / st.total * 100) + '%'; $('#bA').style.width = (st.na / st.total * 100) + '%';
+  const pill = $('#sResult'); pill.className = 'pill ' + st.result; pill.textContent = st.label;
+  $('#outErr').textContent = st.err;
+  const out = $('#outResult'); out.innerHTML = `<span class="pill ${st.result}">${st.label}</span>`;
+  const ch = state.checks[state.doc] || {};
+  currentSections.forEach(sec => {
+    const done = sec.items.filter((_, i) => ch[`${sec.key}.${i}`] && ch[`${sec.key}.${i}`].s).length;
+    const el = document.querySelector(`[data-prog="${sec.key}"]`);
+    if (el) { el.textContent = `${done}/${sec.items.length}`; el.classList.toggle('done', done === sec.items.length); }
+  });
+  const btn = document.querySelector(`.doc[data-code="${state.doc}"] .dot`);
+  if (btn) btn.className = 'dot ' + (!st.checked ? '' : st.result === 'pass' ? 'ok' : st.result === 'fail' ? 'bad' : 'p');
+}
+
+/* reset with in-page confirmation */
+let resetArmed = null;
+$('#resetBtn').addEventListener('click', () => {
+  const b = $('#resetBtn');
+  if (!resetArmed) {
+    b.classList.add('danger-arm'); b.textContent = `กดอีกครั้งเพื่อล้าง ${state.doc}`;
+    resetArmed = setTimeout(() => { resetArmed = null; b.classList.remove('danger-arm'); b.textContent = 'ล้างผลการตรวจ'; }, 3500);
+    return;
+  }
+  clearTimeout(resetArmed); resetArmed = null; b.classList.remove('danger-arm'); b.textContent = 'ล้างผลการตรวจ';
+  delete state.checks[state.doc]; persist(); renderChecklist(); renderDocList(); toast(`ล้างผลการตรวจของ ${state.doc} แล้ว`);
+});
+
+/* ---------- toast ---------- */
+let toastT;
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 3200); }
+
+/* ---------- PDF rendering (canvas → jsPDF) ---------- */
+const segWord = (typeof Intl !== 'undefined' && Intl.Segmenter) ? new Intl.Segmenter('th', {granularity:'word'}) : null;
+const segChar = (typeof Intl !== 'undefined' && Intl.Segmenter) ? new Intl.Segmenter('th', {granularity:'grapheme'}) : null;
+const words = s => segWord ? Array.from(segWord.segment(s), x => x.segment) : s.split(/(\s+)/);
+const chars = s => segChar ? Array.from(segChar.segment(s), x => x.segment) : Array.from(s);
+function wrapText(ctx, text, maxW){
+  const lines = [];
+  String(text ?? '').split('\n').forEach(para => {
+    let line = '';
+    for (const tk of words(para)) {
+      const test = line + tk;
+      if (ctx.measureText(test).width <= maxW) { line = test; continue; }
+      if (line.trim()) { lines.push(line.trimEnd()); line = ''; }
+      const t2 = tk.replace(/^\s+/, '');
+      if (ctx.measureText(t2).width <= maxW) { line = t2; continue; }
+      for (const ch of chars(t2)) {
+        if (ctx.measureText(line + ch).width > maxW && line) { lines.push(line); line = ch; } else line += ch;
+      }
+    }
+    lines.push(line.trimEnd());
+  });
+  return lines;
+}
+async function ensureFonts(){
+  try { await Promise.all([400, 600, 700].map(w => document.fonts.load(`${w} 24px Sarabun`, 'กขค Aa1'))); } catch (e) {}
+}
+
+async function buildPages(){
+  await ensureFonts();
+  const K = 8, PT = 0.3528 * K, mm = v => v * K;
+  const PW = 210, PH = 297, ML = 38.1, MR = 25.4, MT = 34, MB = 25.4, CW = PW - ML - MR, PADX = 1.8;
+  const INK = '#111827', GREY = '#6B7280', LINE = '#4B5563', HEAD = '#DCE3EC', SECF = '#EEF2F7', LBL = '#F3F5F8';
+  const d = DOCS[state.doc]; const info = state.info; const st = statsFor(state.doc); const ch = state.checks[state.doc] || {};
+  const secs = sectionsFor(state.doc);
+  const font = (size, w = 400) => `${w} ${size * PT}px Sarabun, "Noto Sans Thai", sans-serif`;
+  const LH = size => size * PT * 1.5;
+  const pages = []; let ctx, y;
+
+  function newPage(){
+    const c = document.createElement('canvas'); c.width = Math.round(PW * K); c.height = Math.round(PH * K);
+    ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); pages.push(c);
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = GREY; ctx.font = font(9); ctx.textAlign = 'left';
+    ctx.fillText(`แบบตรวจสอบเอกสาร (Checklist) · ${d.code}`, mm(ML), mm(20));
+    ctx.fillStyle = INK; ctx.font = font(11); ctx.textAlign = 'right';
+    ctx.fillText(`หน้า | ${pages.length}`, mm(PW - MR), mm(20)); ctx.textAlign = 'left';
+    ctx.strokeStyle = '#D1D5DB'; ctx.lineWidth = mm(0.25); ctx.beginPath(); ctx.moveTo(mm(ML), mm(23)); ctx.lineTo(mm(PW - MR), mm(23)); ctx.stroke();
+    ctx.fillStyle = GREY; ctx.font = font(8.5); ctx.fillText(`อ้างอิงมาตรฐาน ${info.ref || '-'}`, mm(ML), mm(PH - 12));
+    y = mm(MT);
+  }
+  function text(str, x, size, w, color, align = 'left'){ ctx.font = font(size, w); ctx.fillStyle = color || INK; ctx.textAlign = align; ctx.fillText(str, x, y); ctx.textAlign = 'left'; }
+  function drawCheck(cx, cy, s, color){
+    ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = mm(0.55); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(cx - s * 0.55, cy + s * 0.02); ctx.lineTo(cx - s * 0.12, cy + s * 0.45); ctx.lineTo(cx + s * 0.6, cy - s * 0.45); ctx.stroke(); ctx.restore();
+  }
+  function rowHeight(cells, size){
+    return Math.max(mm(7), ...cells.map(c => {
+      if (c.mark !== undefined) return 0;
+      ctx.font = font(c.size || size, c.weight || 400);
+      c.lines = wrapText(ctx, c.text, mm(c.w - 2 * PADX));
+      return c.lines.length * LH(c.size || size) + mm(2.6);
+    }));
+  }
+  function drawRow(cells, opts = {}){
+    const size = opts.size || 10.5;
+    let h = rowHeight(cells, size);
+    if (y + h > mm(PH - MB)) { newPage(); if (opts.onBreak) opts.onBreak(); h = rowHeight(cells, size); }
+    let x = mm(ML);
+    cells.forEach(c => {
+      const w = mm(c.w);
+      if (c.fill) { ctx.fillStyle = c.fill; ctx.fillRect(x, y, w, h); }
+      ctx.strokeStyle = LINE; ctx.lineWidth = mm(0.2); ctx.strokeRect(x, y, w, h);
+      if (c.mark) drawCheck(x + w / 2, y + h / 2, mm(2.2), c.mark);
+      else if (c.lines) {
+        const sz = c.size || size, lh = LH(sz), fs = sz * PT;
+        ctx.font = font(sz, c.weight || 400); ctx.fillStyle = c.color || INK; ctx.textAlign = c.align || 'left';
+        let ty = y + (h - c.lines.length * lh) / 2 + (lh - fs) / 2 + fs * 0.86;
+        const tx = c.align === 'center' ? x + w / 2 : c.align === 'right' ? x + w - mm(PADX) : x + mm(PADX);
+        c.lines.forEach(ln => { ctx.fillText(ln, tx, ty); ty += lh; });
+        ctx.textAlign = 'left';
+      }
+      x += w;
+    });
+    y += h;
+  }
+  function caption(label, rest){
+    if (y + mm(20) > mm(PH - MB)) newPage();
+    y += mm(5);
+    ctx.font = font(11, 700); ctx.fillStyle = INK; ctx.fillText(label, mm(ML), y);
+    const lw = ctx.measureText(label + ' ').width;
+    ctx.font = font(11); ctx.fillText(rest, mm(ML) + lw, y);
+    y += mm(2.5);
+  }
+
+  newPage();
+  // title block
+  y += mm(2);
+  text('แบบตรวจสอบเอกสาร (Checklist)', mm(PW / 2), 16, 700, INK, 'center'); y += mm(7.5);
+  text(`${d.name} (${d.code})`, mm(PW / 2), 12, 400, GREY, 'center'); y += mm(4);
+
+  // info table
+  const LW = 31, VW = CW / 2 - LW;
+  const resColor = st.result === 'pass' ? '#166534' : st.result === 'fail' ? '#B91C1C' : '#92400E';
+  const cyc = [info.cycle ? `Cycle ${info.cycle}` : '', info.sprint ? `Sprint ${info.sprint}` : ''].filter(Boolean).join(' / ') || '-';
+  caption('ตาราง 1', 'ข้อมูลเอกสารที่ตรวจสอบ');
+  drawRow([{w:LW, text:'ชื่อเอกสาร', fill:LBL, weight:600}, {w:CW - LW, text:info.fileName || '-'}]);
+  drawRow([{w:LW, text:'ประเภทเอกสาร', fill:LBL, weight:600}, {w:CW - LW, text:`${d.code} – ${d.name}`}]);
+  drawRow([{w:LW, text:'เอกสารที่อ้างอิง', fill:LBL, weight:600}, {w:CW - LW, text:info.ref || '-'}]);
+  drawRow([{w:LW, text:'ผู้จัดทำ', fill:LBL, weight:600}, {w:VW, text:info.author || '-'}, {w:LW, text:'QA ผู้ตรวจ', fill:LBL, weight:600}, {w:VW, text:info.qa || '-'}]);
+  drawRow([{w:LW, text:'Cycle / Sprint', fill:LBL, weight:600}, {w:VW, text:cyc}, {w:LW, text:'วันที่ตรวจ', fill:LBL, weight:600}, {w:VW, text:thDate(info.date)}]);
+  drawRow([{w:LW, text:'จำนวนที่ผิดพลาด', fill:LBL, weight:600}, {w:VW, text:String(st.err)}, {w:LW, text:'ผลการตรวจ', fill:LBL, weight:600}, {w:VW, text:st.label, weight:700, color:resColor}]);
+
+  // checklist table
+  const C = [11, 55, 11.5, 11.5, CW - 11 - 55 - 11.5 - 11.5 - 15, 15];
+  const header = () => drawRow([
+    {w:C[0], text:'ข้อ', align:'center', weight:700, fill:HEAD}, {w:C[1], text:'รายการตรวจสอบ', align:'center', weight:700, fill:HEAD},
+    {w:C[2], text:'มี', align:'center', weight:700, fill:HEAD}, {w:C[3], text:'ไม่มี', align:'center', weight:700, fill:HEAD, size:10},
+    {w:C[4], text:'รายละเอียด', align:'center', weight:700, fill:HEAD}, {w:C[5], text:'จำนวน\nผิดพลาด', align:'center', weight:700, fill:HEAD, size:9.5}]);
+  const onBreak = () => { y += mm(2); ctx.font = font(11, 700); ctx.fillStyle = INK; ctx.fillText('ตาราง 2 (ต่อ)', mm(ML), y); y += mm(2.5); header(); };
+  caption('ตาราง 2', 'รายการตรวจสอบตามมาตรฐานเอกสาร');
+  header();
+  secs.forEach((sec, si) => {
+    if (y + mm(17) > mm(PH - MB)) { newPage(); onBreak(); }
+    drawRow([{w:CW, text:`${si + 1}. ${sec.title}  (${sec.ref})`, weight:700, fill:SECF}], {onBreak});
+    sec.items.forEach((t, ii) => {
+      const c = ch[`${sec.key}.${ii}`] || {};
+      const note = c.note || (c.s === 'na' ? 'ไม่เกี่ยวข้องกับเอกสารนี้' : '');
+      drawRow([
+        {w:C[0], text:`${si + 1}.${ii + 1}`, align:'center'}, {w:C[1], text:t},
+        c.s === 'yes' ? {w:C[2], mark:'#166534'} : {w:C[2], text:c.s === 'na' ? '–' : '', align:'center', color:GREY},
+        c.s === 'no' ? {w:C[3], mark:'#B91C1C', fill:'#FDF0EE'} : {w:C[3], text:c.s === 'na' ? '–' : '', align:'center', color:GREY},
+        {w:C[4], text:note, size:10, color:c.s === 'na' && !c.note ? GREY : INK},
+        {w:C[5], text:c.s === 'no' ? String(Math.max(0, parseInt(c.err, 10) || 0)) : (c.s ? '0' : ''), align:'center'}
+      ], {onBreak});
+    });
+  });
+
+  // summary
+  caption('ตาราง 3', 'สรุปผลการตรวจสอบ');
+  const SW = CW / 4;
+  drawRow([{w:SW, text:'รายการทั้งหมด', fill:LBL, weight:600}, {w:SW, text:`${st.total} ข้อ`, align:'center'}, {w:SW, text:'ตรวจแล้ว', fill:LBL, weight:600}, {w:SW, text:`${st.checked} ข้อ`, align:'center'}]);
+  drawRow([{w:SW, text:'มี', fill:LBL, weight:600}, {w:SW, text:`${st.yes} ข้อ`, align:'center'}, {w:SW, text:'ไม่มี', fill:LBL, weight:600}, {w:SW, text:`${st.no} ข้อ`, align:'center'}]);
+  drawRow([{w:SW, text:'ไม่เกี่ยวข้อง (N/A)', fill:LBL, weight:600}, {w:SW, text:`${st.na} ข้อ`, align:'center'}, {w:SW, text:'จำนวนที่ผิดพลาด', fill:LBL, weight:600}, {w:SW, text:`${st.err} จุด`, align:'center'}]);
+  drawRow([{w:SW, text:'ผลการตรวจ', fill:LBL, weight:600}, {w:CW - SW, text:st.label, weight:700, color:resColor, align:'center'}]);
+
+  // signatures
+  if (y + mm(42) > mm(PH - MB)) newPage();
+  y += mm(16);
+  const colX = [mm(ML + CW / 4), mm(ML + CW * 3 / 4)];
+  const sig = [[info.author, 'ผู้จัดทำ'], [info.qa, 'QA ผู้ตรวจ']];
+  sig.forEach(([name, role], i) => {
+    const y0 = y; const x = colX[i];
+    text('ลงชื่อ ......................................................', x, 11, 400, INK, 'center'); y += mm(7);
+    text(`( ${name || '......................................................'} )`, x, 11, 400, INK, 'center'); y += mm(6);
+    text(role, x, 11, 600, INK, 'center'); y += mm(6);
+    text(`วันที่ ${i === 1 ? thDate(info.date) : '........ / ........ / ........'}`, x, 10.5, 400, GREY, 'center');
+    if (i === 0) y = y0;
+  });
+  return pages;
+}
+
+function pdfBaseName(){
+  return `${beStamp(state.info.date)}_CL_${state.doc}_V1.0.0`;
+}
+function buildPdfBlob(pages){
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({unit:'mm', format:'a4', orientation:'portrait', compress:true});
+  pages.forEach((c, i) => { if (i) pdf.addPage('a4', 'portrait'); pdf.addImage(c.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, 210, 297, undefined, 'FAST'); });
+  pdf.setProperties({ title:`Checklist ${state.doc} – ${state.info.fileName || DOCS[state.doc].name}`, subject:'Document Checklist', author:state.info.qa || '', creator:'Doc Checklist' });
+  return pdf.output('blob');
+}
+
+let downloadsP = null;
+function getDownloads(){
+  if (!downloadsP) downloadsP = (window.claude && window.claude.use) ? window.claude.use('downloads').catch(() => null) : Promise.resolve(undefined);
+  return downloadsP;
+}
+async function savePdf(pages, name){
+  if (!window.jspdf) { toast('โหลดตัวสร้าง PDF ไม่สำเร็จ ลองรีเฟรชหน้าอีกครั้ง'); return; }
+  const filename = (name || pdfBaseName()).replace(/\.pdf$/i, '').replace(/[\\/:*?"<>|]+/g, '-') + '.pdf';
+  const blob = buildPdfBlob(pages);
+  const dl = await getDownloads();
+  if (dl) {
+    try { const r = await dl.save({filename, data:blob}); if (r && r.status === 'saved') toast(`บันทึก ${filename} แล้ว`); }
+    catch (e) {
+      const code = e && e.code;
+      if (code === 'declined') toast('ยกเลิกการดาวน์โหลด');
+      else if (code === 'rate_limited') toast('มีหน้าต่างดาวน์โหลดเปิดอยู่ รอสักครู่แล้วลองใหม่');
+      else toast('ดาวน์โหลดไม่ได้ในมุมมองนี้');
+    }
+    return;
+  }
+  if (dl === null) { toast('ดาวน์โหลดไม่ได้ในมุมมองนี้ ลองเปิดหน้านี้ใน claude.ai'); return; }
+  // standalone hosting fallback (outside the Claude viewer)
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  toast(`บันทึก ${filename} แล้ว`);
+}
+
+let lastPages = null;
+async function openPreview(){
+  const m = $('#modal'); m.hidden = false; document.body.style.overflow = 'hidden';
+  $('#pages').innerHTML = '<div class="loading">กำลังจัดหน้าเอกสาร…</div>'; $('#mSub').textContent = 'กำลังสร้าง…';
+  $('#f-pdfName').value = pdfBaseName();
+  lastPages = await buildPages();
+  const box = $('#pages'); box.innerHTML = '';
+  lastPages.forEach((c, i) => { c.setAttribute('aria-label', `หน้า ${i + 1}`); box.append(c); });
+  $('#mSub').textContent = `${DOCS[state.doc].code} · ${lastPages.length} หน้า · A4`;
+  $('#mClose').focus();
+}
+function closePreview(){ $('#modal').hidden = true; document.body.style.overflow = ''; $('#previewBtn').focus(); }
+$('#previewBtn').addEventListener('click', openPreview);
+$('#mClose').addEventListener('click', closePreview);
+$('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closePreview(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#modal').hidden) closePreview(); });
+async function withBusy(btn, fn){ btn.disabled = true; const t = btn.innerHTML; btn.textContent = 'กำลังสร้าง PDF…'; try { await fn(); } finally { btn.disabled = false; btn.innerHTML = t; } }
+$('#mDownload').addEventListener('click', e => withBusy(e.currentTarget, async () => { await savePdf(lastPages || await buildPages(), $('#f-pdfName').value.trim()); }));
+$('#downloadBtn').addEventListener('click', e => withBusy(e.currentTarget, async () => { await savePdf(await buildPages(), pdfBaseName()); }));
+
+/* ---------- boot ---------- */
+initForm();
+renderDoc();
+getDownloads();
+})();
+</script>
+</body>
+</html>
