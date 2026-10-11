@@ -212,7 +212,7 @@ button,input,select{font:inherit;color:inherit}
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6M9 4a2 2 0 0 0-2 2H6a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1a2 2 0 0 0-2-2"/><path d="m8.5 13.5 2.5 2.5 4.5-5"/></svg>
       </div>
       <div>
-        <h1>Doc Checklist <span class="app-ver" title="เวอร์ชันของเว็บ">v1.1.0</span></h1>
+        <h1>Doc Checklist <span class="app-ver" title="เวอร์ชันของเว็บ">v1.2.0</span></h1>
         <p>ตรวจเอกสารตาม Document Standard ทีม Stealth Trade</p>
       </div>
     </div>
@@ -269,11 +269,11 @@ button,input,select{font:inherit;color:inherit}
           </div>
           <div class="f s2">
             <label for="f-cycle">Cycle</label>
-            <select id="f-cycle"><option value="">–</option><option value="1">1</option><option value="2">2</option></select>
+            <input id="f-cycle" type="text" inputmode="numeric" placeholder="เช่น 1" autocomplete="off">
           </div>
           <div class="f s2">
             <label for="f-sprint">Sprint</label>
-            <select id="f-sprint"></select>
+            <input id="f-sprint" type="text" inputmode="numeric" placeholder="เช่น 3" autocomplete="off">
           </div>
           <div class="f s4">
             <label for="f-date">วันที่ตรวจ</label>
@@ -827,24 +827,13 @@ $('#docList').addEventListener('click', e => {
 
 /* ---------- header form ---------- */
 const FIELDS = ['fileName','ref','author','qa','cycle','sprint','date'];
-function fillSprints(){
-  const sel = $('#f-sprint'); const cyc = state.info.cycle;
-  const [a, b] = cyc === '1' ? [1, 8] : cyc === '2' ? [9, 16] : [1, 16];
-  let html = '<option value="">–</option>';
-  for (let i = a; i <= b; i++) html += `<option value="${i}">${i}</option>`;
-  sel.innerHTML = html;
-  if (state.info.sprint && (+state.info.sprint < a || +state.info.sprint > b)) state.info.sprint = '';
-  sel.value = state.info.sprint || '';
-}
 function initForm(){
   $('#members').innerHTML = MEMBERS.map(([n, r]) => `<option value="${esc(n)}">${esc(r)}</option>`).join('');
-  FIELDS.forEach(k => { const el = $('#f-' + k); if (k !== 'sprint') el.value = state.info[k] || ''; });
-  fillSprints();
+  FIELDS.forEach(k => { $('#f-' + k).value = state.info[k] || ''; });
   FIELDS.forEach(k => {
     const el = $('#f-' + k);
-    el.addEventListener(el.tagName === 'SELECT' || el.type === 'date' ? 'change' : 'input', () => {
+    el.addEventListener(el.type === 'date' ? 'change' : 'input', () => {
       state.info[k] = el.value;
-      if (k === 'cycle') fillSprints();
       if (k === 'fileName') checkFileName();
       if (k === 'ref') updateRefChip();
       persist();
