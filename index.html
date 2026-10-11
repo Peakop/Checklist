@@ -226,7 +226,7 @@ button,input,select{font:inherit;color:inherit}
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6M9 4a2 2 0 0 0-2 2H6a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1a2 2 0 0 0-2-2"/><path d="m8.5 13.5 2.5 2.5 4.5-5"/></svg>
       </div>
       <div>
-        <h1>Doc Checklist <span class="app-ver" title="เวอร์ชันของเว็บ">v1.4.1</span></h1>
+        <h1>Doc Checklist <span class="app-ver" title="เวอร์ชันของเว็บ">v1.4.2</span></h1>
         <p>ตรวจเอกสารตาม Document Standard ทีม Stealth Trade</p>
       </div>
     </div>
@@ -1043,19 +1043,31 @@ function wrapText(ctx, text, maxW){
   });
   return lines;
 }
+/* PDF ใช้ TH SarabunPSK (fonts/, ใบอนุญาตใน fonts/LICENSE.txt) ซึ่งตัวเล็กกว่า Sarabun ราว 1.46 เท่าที่ pt เดียวกัน
+   ขนาดในโค้ดจัดหน้าเป็นขนาดแบบ Sarabun จึงคูณ 16/11 ตอนวาด ให้เนื้อหา 11 กลายเป็น 16 pt ตาม DS และระยะบรรทัดเท่าเดิม
+   ถ้าโหลดฟอนต์ไม่ได้ ใช้ Sarabun ขนาดเดิมแทน */
+const PSK_FONTS = [[400, 'fonts/THSarabunPSK.ttf'], [700, 'fonts/THSarabunPSK-Bold.ttf']];
+let pskP = null;
+function loadPsk(){
+  return pskP || (pskP = Promise.all(PSK_FONTS.map(([w, url]) => new FontFace('TH SarabunPSK', `url("${url}")`, {weight:String(w)}).load().then(f => document.fonts.add(f))))
+    .then(() => true, () => { pskP = null; return false; }));
+}
 async function ensureFonts(){
-  try { await Promise.all([400, 600, 700].map(w => document.fonts.load(`${w} 24px Sarabun`, 'กขค Aa1'))); } catch (e) {}
+  const psk = await loadPsk();
+  if (!psk) try { await Promise.all([400, 700].map(w => document.fonts.load(`${w} 24px Sarabun`, 'กขค Aa1'))); } catch (e) {}
+  return psk;
 }
 
 async function buildPages(){
-  await ensureFonts();
+  const psk = await ensureFonts();
   const [lhTop, lhBot] = await loadLetterhead();
   const K = 8, PT = 0.3528 * K, mm = v => v * K;
   const PW = 210, PH = 297, ML = 38.1, MR = 25.4, MT = 41, MB = 28, CW = PW - ML - MR, PADX = 1.8;
   const INK = '#111827', GREY = '#6B7280', LINE = '#4B5563', HEAD = '#DCE3EC', SECF = '#EEF2F7', LBL = '#D9E2F3';
   const d = DOCS[state.doc]; const info = state.info; const st = statsFor(state.doc); const ch = state.checks[state.doc] || {};
   const secs = sectionsFor(state.doc);
-  const font = (size, w = 400) => `${w} ${size * PT}px Sarabun, "Noto Sans Thai", sans-serif`;
+  // TH SarabunPSK มีแค่ตัวปกติกับตัวหนา น้ำหนัก 600 จึงเป็นตัวหนา
+  const font = (size, w = 400) => psk ? `${w >= 600 ? 700 : 400} ${size * 16 / 11 * PT}px "TH SarabunPSK"` : `${w} ${size * PT}px Sarabun, "Noto Sans Thai", sans-serif`;
   const LH = size => size * PT * 1.5;
   const pages = []; let ctx, y;
   const HEAD_R = PW - 8;   // แนวขวาของชื่อเอกสารและเลขหน้าบนแถบแดง ห่างขอบกระดาษ 8 มม. แบบหัวกระดาษ Document Standard
