@@ -226,7 +226,7 @@ button,input,select{font:inherit;color:inherit}
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6M9 4a2 2 0 0 0-2 2H6a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1a2 2 0 0 0-2-2"/><path d="m8.5 13.5 2.5 2.5 4.5-5"/></svg>
       </div>
       <div>
-        <h1>Doc Checklist <span class="app-ver" title="เวอร์ชันของเว็บ">v1.4.4</span></h1>
+        <h1>Doc Checklist <span class="app-ver" title="เวอร์ชันของเว็บ">v1.4.5</span></h1>
         <p>ตรวจเอกสารตาม Document Standard ทีม Stealth Trade</p>
       </div>
     </div>
@@ -1016,18 +1016,62 @@ const segWord = (typeof Intl !== 'undefined' && Intl.Segmenter) ? new Intl.Segme
 const segChar = (typeof Intl !== 'undefined' && Intl.Segmenter) ? new Intl.Segmenter('th', {granularity:'grapheme'}) : null;
 const words = s => segWord ? Array.from(segWord.segment(s), x => x.segment) : s.split(/(\s+)/);
 const chars = s => segChar ? Array.from(segChar.segment(s), x => x.segment) : Array.from(s);
+/* Intl.Segmenter ให้เครื่องหมายเป็น token เดี่ยว จึงกำหนดเองว่าตัดบรรทัดตรงไหนไม่ได้:
+   ไม่ตัดหลังเครื่องหมายเปิด ไม่ตัดก่อนเครื่องหมายปิดหรือวรรคตอน (แม้มีช่องว่างคั่น) และไม่ตัดกลางวงเล็บหรือคำพูดที่สั้น */
+const OPEN_MARK = '([{“‘', CLOSE_MARK = ')]}”’,.:;!?…ฯๆ';
+const GROUP_END = {')':'(', ']':'[', '}':'{', '”':'“', '’':'‘', '"':'"'};
+// 'o' เปิด, 'c' ปิดหรือวรรคตอน, '' อื่น ๆ; " ตรง ๆ เป็นตัวเปิดเมื่ออยู่ต้นข้อความ หลังช่องว่าง หรือหลังเครื่องหมายเปิด
+function markRoles(s){
+  const r = [];
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    r.push(ch === '"' ? (i === 0 || /\s/.test(s[i - 1]) || r[i - 1] === 'o' ? 'o' : 'c') : OPEN_MARK.includes(ch) ? 'o' : CLOSE_MARK.includes(ch) ? 'c' : '');
+  }
+  return r;
+}
+// แบ่งย่อหน้าเป็นก้อนที่ห้ามตัดกลาง
+function wrapUnits(ctx, para, maxW){
+  const role = markRoles(para), cuts = new Set();
+  let at = 0; for (const w of words(para)) { if (at) cuts.add(at); at += w.length; }
+  for (const b of [...cuts]) {
+    let i = b - 1; while (i >= 0 && /\s/.test(para[i])) i--;
+    let j = b; while (j < para.length && /\s/.test(para[j])) j++;
+    if ((i >= 0 && role[i] === 'o') || (j < para.length && role[j] === 'c')) cuts.delete(b);
+  }
+  // วงเล็บหรือคำพูดที่กว้างไม่เกินครึ่งช่อง เช่น (Regular) หรือ "บทนำ" ย้ายลงบรรทัดใหม่ทั้งก้อน
+  const stack = [];
+  for (let k = 0; k < para.length; k++) {
+    if (role[k] === 'o') { stack.push(k); continue; }
+    const o = stack[stack.length - 1];
+    if (role[k] !== 'c' || o == null || para[o] !== GROUP_END[para[k]]) continue;
+    stack.pop();
+    if (ctx.measureText(para.slice(o, k + 1)).width <= maxW / 2) for (let b = o + 1; b <= k; b++) cuts.delete(b);
+  }
+  const units = []; let from = 0;
+  [...cuts].sort((a, b) => a - b).forEach(b => { units.push(para.slice(from, b)); from = b; });
+  units.push(para.slice(from));
+  return units;
+}
 function wrapText(ctx, text, maxW){
+  const W = s => ctx.measureText(s).width;
   const lines = [];
   String(text ?? '').split('\n').forEach(para => {
     let line = '';
-    for (const tk of words(para)) {
-      const test = line + tk;
-      if (ctx.measureText(test).width <= maxW) { line = test; continue; }
-      if (line.trim()) { lines.push(line.trimEnd()); line = ''; }
-      const t2 = tk.replace(/^\s+/, '');
-      if (ctx.measureText(t2).width <= maxW) { line = t2; continue; }
-      for (const ch of chars(t2)) {
-        if (ctx.measureText(line + ch).width > maxW && line) { lines.push(line); line = ch; } else line += ch;
+    for (const u of wrapUnits(ctx, para, maxW)) {
+      if (W((line + u).trimEnd()) <= maxW) { line += u; continue; }
+      if (line.trim()) lines.push(line.trimEnd());
+      line = '';
+      const t = u.replace(/^\s+/, '');
+      if (W(t.trimEnd()) <= maxW) { line = t; continue; }
+      // ก้อนที่กว้างกว่าช่อง ตัดทีละตัวอักษร แต่เครื่องหมายปิดไม่ขึ้นต้นบรรทัด และเครื่องหมายเปิดไม่ค้างท้ายบรรทัด
+      const rs = markRoles(t); let off = 0, prevG = '';
+      for (const g of chars(t)) {
+        const r = rs[off], rep = g === prevG; off += g.length; prevG = g;
+        if (!line && /^\s+$/.test(g)) continue;
+        // เครื่องหมายปิดเกาะตัวก่อนหน้าแม้จะล้นเล็กน้อย ยกเว้นเครื่องหมายเดิมซ้ำยาว ๆ เช่น ...... ที่ตัดได้
+        if (!line || (r === 'c' && !rep) || W((line + g).trimEnd()) <= maxW) { line += g; continue; }
+        const lr = markRoles(line); let k = line.length; while (k > 1 && lr[k - 1] === 'o') k--;
+        lines.push(line.slice(0, k).trimEnd()); line = (line.slice(k) + g).trimStart();
       }
     }
     lines.push(line.trimEnd());
