@@ -1058,13 +1058,14 @@ async function buildPages(){
   const font = (size, w = 400) => `${w} ${size * PT}px Sarabun, "Noto Sans Thai", sans-serif`;
   const LH = size => size * PT * 1.5;
   const pages = []; let ctx, y;
+  const HEAD_R = PW - 8;   // แนวขวาของชื่อเอกสารและเลขหน้าบนแถบแดง ห่างขอบกระดาษ 8 มม. แบบหัวกระดาษ Document Standard
 
   /* ชื่อเอกสาร 2 บรรทัดและเลขหน้า ชิดขวาบนแถบแดงของหัวกระดาษ แถบแดงแคบลงเมื่อลงล่าง จึงย่อบรรทัดที่ล้นทีละ 0.25 pt
      โดยให้บรรทัดภาษาอังกฤษเล็กกว่าบรรทัดภาษาไทยเสมอ คำนวณครั้งเดียวแล้วใช้ทุกหน้า */
   let head;
   function headLayout(){
     if (head) return head;
-    const right = PW - MR, pad = 2.5, top = 1.5, MIN = 6;
+    const right = HEAD_R, pad = 2.5, top = 1.5, MIN = 6;
     const L = [{t:`Checklist ${d.name}`, size:17, w:400}, {t:`แบบตรวจสอบเอกสาร ${d.name}`, size:18.5, w:600}, {t:'หน้า | 88', size:11, w:700}];
     for (let n = 0; n < 400; n++) {
       let yy = top, bad = -1;
@@ -1087,7 +1088,7 @@ async function buildPages(){
     if (lhTop) ctx.drawImage(lhTop, 0, 0, mm(PW), mm(38));
     if (lhBot) ctx.drawImage(lhBot, 0, mm(270), mm(PW), mm(PH - 270));
     ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'right'; ctx.fillStyle = lhTop ? '#fff' : INK;
-    headLayout().forEach((l, i) => { ctx.font = font(l.size, l.w); ctx.fillText(i === 2 ? `หน้า | ${pages.length}` : l.t, mm(PW - MR), mm(l.y)); });
+    headLayout().forEach((l, i) => { ctx.font = font(l.size, l.w); ctx.fillText(i === 2 ? `หน้า | ${pages.length}` : l.t, mm(HEAD_R), mm(l.y)); });
     ctx.textAlign = 'left';
     ctx.fillStyle = lhBot ? '#fff' : GREY; ctx.font = font(8.5); ctx.fillText(`อ้างอิงมาตรฐาน ${info.ref || '-'}`, mm(ML), mm(PH - 10));
     y = mm(MT);
