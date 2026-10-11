@@ -226,7 +226,7 @@ button,input,select{font:inherit;color:inherit}
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6M9 4a2 2 0 0 0-2 2H6a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1a2 2 0 0 0-2-2"/><path d="m8.5 13.5 2.5 2.5 4.5-5"/></svg>
       </div>
       <div>
-        <h1>Doc Checklist <span class="app-ver" title="เวอร์ชันของเว็บ">v1.4.3</span></h1>
+        <h1>Doc Checklist <span class="app-ver" title="เวอร์ชันของเว็บ">v1.4.4</span></h1>
         <p>ตรวจเอกสารตาม Document Standard ทีม Stealth Trade</p>
       </div>
     </div>
@@ -1053,6 +1053,7 @@ async function buildPages(){
   const psk = await ensureFonts();
   const [lhTop, lhBot] = await loadLetterhead();
   const K = 8, PT = 0.3528 * K, mm = v => v * K;
+  // เนื้อหาจบที่ PH - MB = 269 มม. ส่วนลายของแถบท้ายกระดาษ LH_BOT เริ่มที่ 271.9 มม. (ภาพวาดตั้งแต่ 270 มม. แถวบนเป็นสีขาว) จึงไม่ทับกัน
   const PW = 210, PH = 297, ML = 38.1, MR = 25.4, MT = 41, MB = 28, CW = PW - ML - MR, PADX = 1.8;
   const INK = '#111827', GREY = '#6B7280', LINE = '#4B5563', HEAD = '#DCE3EC', SECF = '#EEF2F7', LBL = '#D9E2F3';
   const d = DOCS[state.doc]; const info = state.info; const st = statsFor(state.doc); const ch = state.checks[state.doc] || {};
@@ -1131,8 +1132,9 @@ async function buildPages(){
     });
     y += h;
   }
-  function caption(label, rest){
-    if (y + mm(20) > mm(PH - MB)) newPage();
+  // keep: ความสูงของสิ่งที่ต้องอยู่หน้าเดียวกับชื่อตาราง (อย่างน้อยแถวแรกของตาราง) ชื่อตารางจะไม่ค้างท้ายหน้าคนเดียว
+  function caption(label, rest, keep){
+    if (y + mm(7.5) + keep > mm(PH - MB)) newPage();
     y += mm(5);
     ctx.font = font(11, 700); ctx.fillStyle = INK; ctx.fillText(label, mm(ML), y);
     const lw = ctx.measureText(label + ' ').width;
@@ -1150,36 +1152,44 @@ async function buildPages(){
   const LW = 31, VW = CW / 2 - LW;
   const resColor = st.result === 'pass' ? '#166534' : st.result === 'fail' ? '#B91C1C' : '#92400E';
   const cyc = [info.cycle ? `Cycle ${info.cycle}` : '', info.sprint ? `Sprint ${info.sprint}` : ''].filter(Boolean).join(' / ') || '-';
-  caption('ตาราง 1', 'ข้อมูลเอกสารที่ตรวจสอบ');
-  drawRow([{w:LW, text:'ชื่อเอกสาร', fill:LBL, weight:600}, {w:CW - LW, text:info.fileName || '-'}]);
-  drawRow([{w:LW, text:'ประเภทเอกสาร', fill:LBL, weight:600}, {w:CW - LW, text:`${d.code} – ${d.name}`}]);
-  drawRow([{w:LW, text:'ผู้จัดทำ', fill:LBL, weight:600}, {w:VW, text:info.author || '-'}, {w:LW, text:'QA ผู้ตรวจ', fill:LBL, weight:600}, {w:VW, text:info.qa || '-'}]);
-  drawRow([{w:LW, text:'Cycle / Sprint', fill:LBL, weight:600}, {w:VW, text:cyc}, {w:LW, text:'วันที่ตรวจ', fill:LBL, weight:600}, {w:VW, text:thDate(info.date)}]);
-  drawRow([{w:LW, text:'จำนวนที่ผิดพลาด', fill:LBL, weight:600}, {w:VW, text:String(st.err)}, {w:LW, text:'ผลการตรวจ', fill:LBL, weight:600}, {w:VW, text:st.label, weight:700, color:resColor}]);
+  const infoRows = [
+    [{w:LW, text:'ชื่อเอกสาร', fill:LBL, weight:600}, {w:CW - LW, text:info.fileName || '-'}],
+    [{w:LW, text:'ประเภทเอกสาร', fill:LBL, weight:600}, {w:CW - LW, text:`${d.code} – ${d.name}`}],
+    [{w:LW, text:'ผู้จัดทำ', fill:LBL, weight:600}, {w:VW, text:info.author || '-'}, {w:LW, text:'QA ผู้ตรวจ', fill:LBL, weight:600}, {w:VW, text:info.qa || '-'}],
+    [{w:LW, text:'Cycle / Sprint', fill:LBL, weight:600}, {w:VW, text:cyc}, {w:LW, text:'วันที่ตรวจ', fill:LBL, weight:600}, {w:VW, text:thDate(info.date)}],
+    [{w:LW, text:'จำนวนที่ผิดพลาด', fill:LBL, weight:600}, {w:VW, text:String(st.err)}, {w:LW, text:'ผลการตรวจ', fill:LBL, weight:600}, {w:VW, text:st.label, weight:700, color:resColor}]
+  ];
+  caption('ตาราง 1', 'ข้อมูลเอกสารที่ตรวจสอบ', rowHeight(infoRows[0], 10.5));
+  infoRows.forEach(r => drawRow(r));
 
   // checklist table
   const C = [11, 55, 11.5, 11.5, CW - 11 - 55 - 11.5 - 11.5 - 15, 15];
-  const header = () => drawRow([
+  const headCells = () => [
     {w:C[0], text:'ข้อ', align:'center', weight:700, fill:HEAD}, {w:C[1], text:'รายการตรวจสอบ', align:'center', weight:700, fill:HEAD},
     {w:C[2], text:'มี', align:'center', weight:700, fill:HEAD}, {w:C[3], text:'ไม่มี', align:'center', weight:700, fill:HEAD, size:10},
-    {w:C[4], text:'รายละเอียด', align:'center', weight:700, fill:HEAD}, {w:C[5], text:'จำนวน\nผิดพลาด', align:'center', weight:700, fill:HEAD, size:9.5}]);
+    {w:C[4], text:'รายละเอียด', align:'center', weight:700, fill:HEAD}, {w:C[5], text:'จำนวน\nผิดพลาด', align:'center', weight:700, fill:HEAD, size:9.5}];
+  const header = () => drawRow(headCells());
   const onBreak = () => { y += mm(2); ctx.font = font(11, 700); ctx.fillStyle = INK; ctx.fillText('ตาราง 2 (ต่อ)', mm(ML), y); y += mm(2.5); header(); };
-  caption('ตาราง 2', 'รายการตรวจสอบตามมาตรฐานเอกสาร');
+  const secCells = (sec, si) => [{w:CW, text:`${si + 1}. ${sec.title}  (${sec.ref})`, weight:700, fill:SECF}];
+  const itemCells = (sec, si, ii) => {
+    const c = ch[itemId(sec, ii)] || {};
+    const note = c.note || (c.s === 'na' ? 'ไม่เกี่ยวข้องกับเอกสารนี้' : '');
+    return [
+      {w:C[0], text:`${si + 1}.${ii + 1}`, align:'center'}, {w:C[1], text:sec.items[ii]},
+      c.s === 'yes' ? {w:C[2], mark:'#166534'} : {w:C[2], text:c.s === 'na' ? '–' : '', align:'center', color:GREY},
+      c.s === 'no' ? {w:C[3], mark:'#B91C1C', fill:'#FDF0EE'} : {w:C[3], text:c.s === 'na' ? '–' : '', align:'center', color:GREY},
+      {w:C[4], text:note, size:10, color:c.s === 'na' && !c.note ? GREY : INK},
+      {w:C[5], text:c.s === 'no' ? String(Math.max(0, parseInt(c.err, 10) || 0)) : (c.s ? '0' : ''), align:'center'}
+    ];
+  };
+  // หัวหมวดต้องอยู่หน้าเดียวกับข้อแรกของหมวด (keep with next) วัดจากความสูงจริงของทั้งสองแถว
+  const secKeepH = si => rowHeight(secCells(secs[si], si), 10.5) + (secs[si].items.length ? rowHeight(itemCells(secs[si], si, 0), 10.5) : 0);
+  caption('ตาราง 2', 'รายการตรวจสอบตามมาตรฐานเอกสาร', rowHeight(headCells(), 10.5) + (secs.length ? secKeepH(0) : 0));
   header();
   secs.forEach((sec, si) => {
-    if (y + mm(17) > mm(PH - MB)) { newPage(); onBreak(); }
-    drawRow([{w:CW, text:`${si + 1}. ${sec.title}  (${sec.ref})`, weight:700, fill:SECF}], {onBreak});
-    sec.items.forEach((t, ii) => {
-      const c = ch[itemId(sec, ii)] || {};
-      const note = c.note || (c.s === 'na' ? 'ไม่เกี่ยวข้องกับเอกสารนี้' : '');
-      drawRow([
-        {w:C[0], text:`${si + 1}.${ii + 1}`, align:'center'}, {w:C[1], text:t},
-        c.s === 'yes' ? {w:C[2], mark:'#166534'} : {w:C[2], text:c.s === 'na' ? '–' : '', align:'center', color:GREY},
-        c.s === 'no' ? {w:C[3], mark:'#B91C1C', fill:'#FDF0EE'} : {w:C[3], text:c.s === 'na' ? '–' : '', align:'center', color:GREY},
-        {w:C[4], text:note, size:10, color:c.s === 'na' && !c.note ? GREY : INK},
-        {w:C[5], text:c.s === 'no' ? String(Math.max(0, parseInt(c.err, 10) || 0)) : (c.s ? '0' : ''), align:'center'}
-      ], {onBreak});
-    });
+    if (y + secKeepH(si) > mm(PH - MB)) { newPage(); onBreak(); }
+    drawRow(secCells(sec, si), {onBreak});
+    sec.items.forEach((_, ii) => drawRow(itemCells(sec, si, ii), {onBreak}));
   });
 
   // summary + signatures are kept together on one page
@@ -1192,7 +1202,7 @@ async function buildPages(){
   ];
   const sumH = mm(7.5) + sumRows.reduce((s, r) => s + rowHeight(r, 10.5), 0);
   if (y + sumH + SIG_H > mm(PH - MB)) newPage();
-  caption('ตาราง 3', 'สรุปผลการตรวจสอบ');
+  caption('ตาราง 3', 'สรุปผลการตรวจสอบ', rowHeight(sumRows[0], 10.5));
   sumRows.forEach(r => drawRow(r));
 
   // signatures
