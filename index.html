@@ -226,7 +226,7 @@ button,input,select{font:inherit;color:inherit}
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6M9 4a2 2 0 0 0-2 2H6a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1a2 2 0 0 0-2-2"/><path d="m8.5 13.5 2.5 2.5 4.5-5"/></svg>
       </div>
       <div>
-        <h1>Doc Checklist <span class="app-ver" title="เวอร์ชันของเว็บ">v1.4.7</span></h1>
+        <h1>Doc Checklist <span class="app-ver" title="เวอร์ชันของเว็บ">v1.4.8</span></h1>
         <p>ตรวจเอกสารตาม Document Standard ทีม Stealth Trade</p>
       </div>
     </div>
@@ -314,15 +314,15 @@ button,input,select{font:inherit;color:inherit}
           <div class="bar" aria-hidden="true"><span class="y" id="bY"></span><span class="n" id="bN"></span><span class="a" id="bA"></span></div>
         </div>
         <div class="counts">
-          <span class="k y">มี<b id="sYes">0</b></span>
-          <span class="k n">ไม่มี<b id="sNo">0</b></span>
+          <span class="k y">ผ่าน<b id="sYes">0</b></span>
+          <span class="k n">ไม่ผ่าน<b id="sNo">0</b></span>
           <span class="k a">N/A<b id="sNa">0</b></span>
         </div>
         <div class="errtot">ข้อผิดพลาดรวม <b id="sErr">0</b></div>
         <span class="pill pend" id="sResult">ยังตรวจไม่ครบ</span>
       </section>
 
-      <div class="colhead" aria-hidden="true"><span>ข้อ</span><span>รายการตรวจสอบ</span><span>การใช้งาน</span><span>รายละเอียด</span><span>ข้อผิดพลาด</span></div>
+      <div class="colhead" aria-hidden="true"><span>ข้อ</span><span>รายการตรวจสอบ</span><span>ผลตรวจ</span><span>รายละเอียด</span><span>ข้อผิดพลาด</span></div>
       <div id="sections" class="main"></div>
     </main>
   </div>
@@ -906,14 +906,14 @@ function renderChecklist(){
     const el = document.createElement('section'); el.className = 'card sec';
     el.innerHTML = `<header class="sec-h"><div class="sec-t"><span class="sec-n">${si+1}</span><h3>${esc(sec.title)}</h3><span class="ref">${esc(sec.ref)}</span></div>
       <div class="sec-tools"><span class="sec-prog" data-prog="${sec.key}"></span>
-      <button type="button" class="ghost" data-bulk="yes" data-sec="${sec.key}">ข้อที่เหลือ = มี</button>
+      <button type="button" class="ghost" data-bulk="yes" data-sec="${sec.key}">ข้อที่เหลือ = ผ่าน</button>
       <button type="button" class="ghost" data-bulk="na" data-sec="${sec.key}">ทั้งหมวด N/A</button></div></header>`;
     const rows = document.createElement('div'); rows.className = 'rows';
     sec.items.forEach((t, ii) => {
       const id = itemId(sec, ii); const n = `${si+1}.${ii+1}`;
       const row = document.createElement('div'); row.className = 'row'; row.dataset.id = id;
       row.innerHTML = `<div class="num">${n}</div><div class="txt">${esc(t)}<span class="auto-tag" hidden></span><div class="auto-note" hidden></div></div>
-        <div class="seg" role="group" aria-label="การใช้งาน ข้อ ${n}"><button type="button" data-v="yes">มี</button><button type="button" data-v="no">ไม่มี</button><button type="button" data-v="na">N/A</button></div>
+        <div class="seg" role="group" aria-label="ผลตรวจ ข้อ ${n}"><button type="button" data-v="yes">ผ่าน</button><button type="button" data-v="no">ไม่ผ่าน</button><button type="button" data-v="na">N/A</button></div>
         <input class="note" id="note-${state.doc}-${id}" type="text" placeholder="รายละเอียด / หน้าที่พบ" aria-label="รายละเอียด ข้อ ${n}">
         <label class="errbox"><span class="lbl-m">ผิดพลาด</span><input class="err" id="err-${state.doc}-${id}" type="number" min="0" step="1" inputmode="numeric" aria-label="จำนวนข้อผิดพลาด ข้อ ${n}"></label>`;
       rows.append(row); syncRow(row);
@@ -1243,10 +1243,13 @@ async function buildPages(){
   infoRows.forEach(r => drawRow(r));
 
   // checklist table
-  const C = [11, 55, 11.5, 11.5, CW - 11 - 55 - 11.5 - 11.5 - 15, 15];
+  // คอลัมน์ผ่าน/ไม่ผ่านกว้างพอให้หัว "ไม่ผ่าน" อยู่บรรทัดเดียว (ปัดขึ้นทีละ 0.5 มม.) แล้วลดคอลัมน์รายละเอียดลงแทน
+  ctx.font = font(10.5, 700);
+  const MW = Math.max(11.5, Math.ceil((ctx.measureText('ไม่ผ่าน').width / K + 2 * PADX + 0.6) * 2) / 2);
+  const C = [11, 55, MW, MW, CW - 11 - 55 - 2 * MW - 15, 15];
   const headCells = () => [
     {w:C[0], text:'ข้อ', align:'center', weight:700, fill:HEAD}, {w:C[1], text:'รายการตรวจสอบ', align:'center', weight:700, fill:HEAD},
-    {w:C[2], text:'มี', align:'center', weight:700, fill:HEAD}, {w:C[3], text:'ไม่มี', align:'center', weight:700, fill:HEAD, size:10},
+    {w:C[2], text:'ผ่าน', align:'center', weight:700, fill:HEAD}, {w:C[3], text:'ไม่ผ่าน', align:'center', weight:700, fill:HEAD},
     {w:C[4], text:'รายละเอียด', align:'center', weight:700, fill:HEAD}, {w:C[5], text:'จำนวน\nผิดพลาด', align:'center', weight:700, fill:HEAD, size:9.5}];
   const header = () => drawRow(headCells());
   const onBreak = () => { y += mm(2); ctx.font = font(11, 700); ctx.fillStyle = INK; ctx.fillText('ตาราง 2 (ต่อ)', mm(ML), y); y += mm(2.5); header(); };
@@ -1276,7 +1279,7 @@ async function buildPages(){
   const SW = CW / 4, SIG_H = mm(42);
   const sumRows = [
     [{w:SW, text:'รายการทั้งหมด', fill:LBL, weight:600}, {w:SW, text:`${st.total} ข้อ`, align:'center'}, {w:SW, text:'ตรวจแล้ว', fill:LBL, weight:600}, {w:SW, text:`${st.checked} ข้อ`, align:'center'}],
-    [{w:SW, text:'มี', fill:LBL, weight:600}, {w:SW, text:`${st.yes} ข้อ`, align:'center'}, {w:SW, text:'ไม่มี', fill:LBL, weight:600}, {w:SW, text:`${st.no} ข้อ`, align:'center'}],
+    [{w:SW, text:'ผ่าน', fill:LBL, weight:600}, {w:SW, text:`${st.yes} ข้อ`, align:'center'}, {w:SW, text:'ไม่ผ่าน', fill:LBL, weight:600}, {w:SW, text:`${st.no} ข้อ`, align:'center'}],
     [{w:SW, text:'ไม่เกี่ยวข้อง (N/A)', fill:LBL, weight:600}, {w:SW, text:`${st.na} ข้อ`, align:'center'}, {w:SW, text:'จำนวนที่ผิดพลาด', fill:LBL, weight:600}, {w:SW, text:`${st.err} จุด`, align:'center'}],
     [{w:SW, text:'ผลการตรวจ', fill:LBL, weight:600}, {w:CW - SW, text:st.label, weight:700, color:resColor, align:'center'}]
   ];
@@ -2055,7 +2058,7 @@ async function autoCheck(file){
     const opts = {code:state.doc, name:DOCS[state.doc].name, fileName:file.name, long:LONG.has(state.doc), meeting:MEETING.has(state.doc)};
     const R = excel ? analyzeXlsx(await readXlsx(file), opts) : analyzeDocx(await readDocx(file), opts);
     const o = applyAuto(R); const done = o.yes + o.no + o.na;
-    showAuto('', `<b>ตรวจ ${esc(file.name)} แล้ว</b> · ติ๊กผลให้ ${done} ข้อ (มี ${o.yes} · ไม่มี ${o.no} · N/A ${o.na}) · ใส่คำแนะนำ ${o.hint} ข้อ · ต้องตรวจเองอีก ${o.total - done} ข้อ` +
+    showAuto('', `<b>ตรวจ ${esc(file.name)} แล้ว</b> · ติ๊กผลให้ ${done} ข้อ (ผ่าน ${o.yes} · ไม่ผ่าน ${o.no} · N/A ${o.na}) · ใส่คำแนะนำ ${o.hint} ข้อ · ต้องตรวจเองอีก ${o.total - done} ข้อ` +
       `<span class="sub">ข้อที่มีป้าย "อัตโนมัติ" ตรวจจากรูปแบบในไฟล์ ควรตรวจทานก่อนส่ง${o.kept ? ` · ไม่ทับ ${o.kept} ข้อที่ตรวจเองไว้แล้ว` : ''}</span>`);
   } catch (e) {
     showAuto('bad', `ตรวจไม่สำเร็จ: ${esc(e.message || e)}`);
