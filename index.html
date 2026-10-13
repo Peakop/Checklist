@@ -226,7 +226,7 @@ button,input,select{font:inherit;color:inherit}
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6M9 4a2 2 0 0 0-2 2H6a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1a2 2 0 0 0-2-2"/><path d="m8.5 13.5 2.5 2.5 4.5-5"/></svg>
       </div>
       <div>
-        <h1>Doc Checklist <span class="app-ver" title="เวอร์ชันของเว็บ">v1.4.6</span></h1>
+        <h1>Doc Checklist <span class="app-ver" title="เวอร์ชันของเว็บ">v1.4.7</span></h1>
         <p>ตรวจเอกสารตาม Document Standard ทีม Stealth Trade</p>
       </div>
     </div>
@@ -798,6 +798,12 @@ const TH_MONTHS = ['มกราคม','กุมภาพันธ์','มี
 function todayISO(){ const t = new Date(); return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`; }
 function thDate(iso){ if (!iso) return '-'; const [y,m,d] = iso.split('-').map(Number); return `${d} ${TH_MONTHS[m-1]} ${y+543}`; }
 function beStamp(iso){ const [y,m,d] = (iso || todayISO()).split('-'); return `${+y+543}-${m}-${d}`; }
+// วันที่จากชื่อไฟล์ (YYYY-MM-DD_… ปี พ.ศ. หรือ ค.ศ.) เป็น ISO ค.ศ. ไม่พบหรือไม่ถูกต้องคืน ''
+function fileNameISO(name){
+  const m = /^(\d{4})-(\d{2})-(\d{2})_/.exec((name || '').trim()); if (!m) return '';
+  const y = +m[1], mo = +m[2], d = +m[3]; if (mo < 1 || mo > 12 || d < 1 || d > 31) return '';
+  return `${y >= 2400 ? y - 543 : y}-${m[2]}-${m[3]}`;
+}
 
 let state = { doc:'DS', info:{ fileName:'', author:'', qa:'', cycle:'', sprint:'', date:todayISO() }, checks:{}, files:{} };
 try {
@@ -1283,6 +1289,7 @@ async function buildPages(){
   y += mm(16);
   const colX = [mm(ML + CW / 4), mm(ML + CW * 3 / 4)];
   const sig = [[info.author, 'ผู้จัดทำ'], [info.qa, 'QA ผู้ตรวจ']];
+  const sigDate = [fileNameISO(info.fileName), info.date];
   sig.forEach(([name, role], i) => {
     const y0 = y; const x = colX[i];
     const LINE_T = 'ลงชื่อ ......................................................';
@@ -1298,7 +1305,7 @@ async function buildPages(){
     y += mm(7);
     text(`( ${name || '......................................................'} )`, x, 11, 400, INK, 'center'); y += mm(6);
     text(role, x, 11, 600, INK, 'center'); y += mm(6);
-    text(`วันที่ ${i === 1 ? thDate(info.date) : '........ / ........ / ........'}`, x, 10.5, 400, GREY, 'center');
+    text(`วันที่ ${sigDate[i] ? thDate(sigDate[i]) : '........ / ........ / ........'}`, x, 10.5, 400, GREY, 'center');
     if (i === 0) y = y0;
   });
   return pages;
