@@ -226,7 +226,7 @@ button,input,select{font:inherit;color:inherit}
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6M9 4a2 2 0 0 0-2 2H6a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1a2 2 0 0 0-2-2"/><path d="m8.5 13.5 2.5 2.5 4.5-5"/></svg>
       </div>
       <div>
-        <h1>Doc Checklist <span class="app-ver" title="เวอร์ชันของเว็บ">v1.4.5</span></h1>
+        <h1>Doc Checklist <span class="app-ver" title="เวอร์ชันของเว็บ">v1.4.6</span></h1>
         <p>ตรวจเอกสารตาม Document Standard ทีม Stealth Trade</p>
       </div>
     </div>
@@ -1012,6 +1012,35 @@ function loadLetterhead(){
   const load = src => new Promise(res => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = src; });
   return letterhead || (letterhead = Promise.all([load(LH_TOP), load(LH_BOT)]));
 }
+/* ลายเซ็นอยู่ที่ signature/Sign_<ชื่อจริง>.png จับคู่จากชื่อจริงของสมาชิกที่เลือก (ไม่สนคำนำหน้าและนามสกุล)
+   ตัดขอบโปร่งใสออกก่อนวาด ถ้าโหลดหรืออ่านพิกเซลไม่ได้ (เช่นเปิดจาก file://) ก็ไม่ใส่ลายเซ็น */
+const SIGN_FILE = {'พรพิมล':'พลพิมล'};   // ชื่อไฟล์ที่สะกดต่างจากรายชื่อสมาชิก
+const firstName = s => String(s || '').trim().replace(/^(นางสาว|นาง|นาย|น\.ส\.)\s*/, '').split(/\s+/)[0];
+const signs = new Map();
+function loadSignature(name){
+  const first = firstName(name);
+  if (!first || !MEMBERS.some(([n]) => firstName(n) === first)) return Promise.resolve(null);
+  if (!signs.has(first)) signs.set(first, new Promise(res => {
+    const im = new Image();
+    im.onerror = () => { signs.delete(first); res(null); };
+    im.onload = () => {
+      try {
+        const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
+        const g = c.getContext('2d'); g.drawImage(im, 0, 0);
+        const a = g.getImageData(0, 0, c.width, c.height).data;
+        let x0 = c.width, y0 = c.height, x1 = -1, y1 = -1;
+        for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) if (a[(y * c.width + x) * 4 + 3] > 16) {
+          if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+        }
+        if (x1 < 0) return res(null);
+        const t = document.createElement('canvas'); t.width = x1 - x0 + 1; t.height = y1 - y0 + 1;
+        t.getContext('2d').drawImage(c, -x0, -y0); res(t);
+      } catch (e) { res(null); }
+    };
+    im.src = encodeURI(`signature/Sign_${SIGN_FILE[first] || first}.png`);
+  }));
+  return signs.get(first);
+}
 const segWord = (typeof Intl !== 'undefined' && Intl.Segmenter) ? new Intl.Segmenter('th', {granularity:'word'}) : null;
 const segChar = (typeof Intl !== 'undefined' && Intl.Segmenter) ? new Intl.Segmenter('th', {granularity:'grapheme'}) : null;
 const words = s => segWord ? Array.from(segWord.segment(s), x => x.segment) : s.split(/(\s+)/);
@@ -1096,6 +1125,7 @@ async function ensureFonts(){
 async function buildPages(){
   const psk = await ensureFonts();
   const [lhTop, lhBot] = await loadLetterhead();
+  const sigImg = await Promise.all([loadSignature(state.info.author), loadSignature(state.info.qa)]);
   const K = 8, PT = 0.3528 * K, mm = v => v * K;
   // เนื้อหาจบที่ PH - MB = 269 มม. ส่วนลายของแถบท้ายกระดาษ LH_BOT เริ่มที่ 271.9 มม. (ภาพวาดตั้งแต่ 270 มม. แถวบนเป็นสีขาว) จึงไม่ทับกัน
   const PW = 210, PH = 297, ML = 38.1, MR = 25.4, MT = 41, MB = 28, CW = PW - ML - MR, PADX = 1.8;
@@ -1255,7 +1285,17 @@ async function buildPages(){
   const sig = [[info.author, 'ผู้จัดทำ'], [info.qa, 'QA ผู้ตรวจ']];
   sig.forEach(([name, role], i) => {
     const y0 = y; const x = colX[i];
-    text('ลงชื่อ ......................................................', x, 11, 400, INK, 'center'); y += mm(7);
+    const LINE_T = 'ลงชื่อ ......................................................';
+    text(LINE_T, x, 11, 400, INK, 'center');
+    const im = sigImg[i];
+    if (im) {
+      // วางกลางเส้นจุด ฐานลายเซ็นทับเส้นเล็กน้อย สูงไม่เกิน 13 มม. ไม่ชนตารางสรุปด้านบน
+      ctx.font = font(11); const full = ctx.measureText(LINE_T).width, lw = ctx.measureText('ลงชื่อ ').width;
+      const s = Math.min(mm(13) / im.height, (full - lw) * 0.9 / im.width);
+      const w = im.width * s, h = im.height * s, cx = x - full / 2 + lw + (full - lw) / 2;
+      ctx.drawImage(im, cx - w / 2, y + mm(1.5) - h, w, h);
+    }
+    y += mm(7);
     text(`( ${name || '......................................................'} )`, x, 11, 400, INK, 'center'); y += mm(6);
     text(role, x, 11, 600, INK, 'center'); y += mm(6);
     text(`วันที่ ${i === 1 ? thDate(info.date) : '........ / ........ / ........'}`, x, 10.5, 400, GREY, 'center');
