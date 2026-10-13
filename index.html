@@ -128,7 +128,7 @@ button,input,select{font:inherit;color:inherit}
 .pill.fail{background:var(--fail-soft);color:var(--fail)}
 
 /* checklist */
-.colhead{display:grid;grid-template-columns:3rem minmax(0,1fr) 13.5rem minmax(9rem,14rem) 5.5rem;gap:12px;padding:0 18px;font-size:12px;color:var(--faint);font-weight:600;letter-spacing:.03em}
+.colhead{display:grid;grid-template-columns:3rem minmax(0,1fr) 14.5rem minmax(9rem,14rem) 5.5rem;gap:12px;padding:0 18px;font-size:12px;color:var(--faint);font-weight:600;letter-spacing:.03em}
 .colhead span:nth-child(3),.colhead span:nth-child(5){text-align:center}
 .sec{overflow:hidden}
 .sec-h{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;padding:12px 18px;background:color-mix(in srgb,var(--accent-soft) 45%,var(--sheet));border-bottom:1px solid var(--line)}
@@ -141,7 +141,7 @@ button,input,select{font:inherit;color:inherit}
 .sec-prog.done{color:var(--pass);font-weight:600}
 .ghost{border:1px solid transparent;background:none;color:var(--accent);border-radius:6px;padding:4px 9px;font-size:12.5px;cursor:pointer;font-weight:500}
 .ghost:hover{border-color:var(--line-strong);background:var(--sheet)}
-.row{display:grid;grid-template-columns:3rem minmax(0,1fr) 13.5rem minmax(9rem,14rem) 5.5rem;grid-template-areas:"num txt seg note err";gap:12px;align-items:center;padding:10px 18px;border-top:1px solid var(--line)}
+.row{display:grid;grid-template-columns:3rem minmax(0,1fr) 14.5rem minmax(9rem,14rem) 5.5rem;grid-template-areas:"num txt seg note err";gap:12px;align-items:center;padding:10px 18px;border-top:1px solid var(--line)}
 .row:first-child{border-top:0}
 .row .num{grid-area:num;font-family:var(--f-mono);font-size:12.5px;color:var(--muted)}
 .row .txt{grid-area:txt;min-width:0;font-size:14.5px}
@@ -150,8 +150,8 @@ button,input,select{font:inherit;color:inherit}
 .row .errbox{grid-area:err}
 .row.is-no{background:var(--fail-soft)}
 .row.is-na .txt{color:var(--faint)}
-.seg{display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden;background:var(--sheet)}
-.seg button{border:0;background:none;padding:6px 0;cursor:pointer;font-size:13.5px;font-weight:500;color:var(--muted);border-left:1px solid var(--line)}
+.seg{display:grid;grid-template-columns:auto auto auto;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden;background:var(--sheet)}
+.seg button{border:0;background:none;padding:6px 10px;white-space:nowrap;cursor:pointer;font-size:13.5px;font-weight:500;color:var(--muted);border-left:1px solid var(--line)}
 .seg button:first-child{border-left:0}
 .seg button:hover{background:var(--paper);color:var(--ink)}
 .seg button[aria-pressed="true"][data-v="yes"]{background:var(--pass);color:#fff}
@@ -159,7 +159,7 @@ button,input,select{font:inherit;color:inherit}
 .seg button[aria-pressed="true"][data-v="na"]{background:var(--na);color:var(--sheet)}
 .note{width:100%;min-width:0;border:1px solid var(--line-strong);border-radius:var(--r-sm);padding:6px 9px;background:var(--sheet);font-size:13.5px}
 .errbox{display:flex;align-items:center;gap:6px}
-.errbox .lbl-m{display:none;font-size:12.5px;color:var(--muted)}
+.errbox .lbl-m{display:none;font-size:12.5px;color:var(--muted);white-space:nowrap}
 .err{width:100%;border:1px solid var(--line-strong);border-radius:var(--r-sm);padding:6px 8px;background:var(--sheet);text-align:center;font-variant-numeric:tabular-nums}
 .err:disabled{opacity:.45;background:transparent}
 
@@ -187,8 +187,7 @@ button,input,select{font:inherit;color:inherit}
 .auto-res.bad{background:var(--fail-soft);color:var(--fail)}
 .auto-res .sub{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
 .auto-tag{display:inline-block;margin-left:8px;font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:0 7px;vertical-align:1px;white-space:nowrap}
-.auto-tag.hint{color:var(--warn);background:var(--warn-soft)}
-.auto-note{font-size:12.5px;color:var(--muted);margin-top:2px;overflow-wrap:anywhere}
+.auto-hints{margin:4px 0 0;padding-left:18px;font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}
 
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 20px);background:var(--ink);color:var(--sheet);padding:10px 16px;border-radius:8px;font-size:14px;z-index:60;max-width:calc(100% - 32px);box-shadow:0 6px 20px rgba(0,0,0,.25)}
 
@@ -210,10 +209,15 @@ button,input,select{font:inherit;color:inherit}
 @media (max-width: 520px){
   .top-actions{margin-left:0;width:100%}
   .top-actions .btn{flex:1;justify-content:center}
-  .row{grid-template-columns:2.2rem minmax(0,1fr) 5.6rem;padding:10px 12px}
+  .row{grid-template-columns:2.2rem minmax(0,1fr) auto;padding:10px 12px}
+  .seg button{padding:6px 8px}
   .sec-h{padding:10px 12px}
   .info{padding:16px 14px}
   .ref-chip{display:none}
+}
+/* จอแคบมาก ปุ่มผลตรวจ 3 ปุ่มได้บรรทัดของตัวเองเพื่อให้ "ไม่พบข้อมูล" ไม่ล้น จำนวนผิดพลาดย้ายไปบรรทัดล่างสุด */
+@media (max-width: 460px){
+  .row{grid-template-areas:"num txt txt" "num seg seg" "num note note" "num err err"}
 }
 @media (prefers-reduced-motion: reduce){ .bar span{transition:none} }
 </style>
@@ -226,7 +230,7 @@ button,input,select{font:inherit;color:inherit}
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6M9 4a2 2 0 0 0-2 2H6a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1a2 2 0 0 0-2-2"/><path d="m8.5 13.5 2.5 2.5 4.5-5"/></svg>
       </div>
       <div>
-        <h1>Doc Checklist <span class="app-ver" title="เวอร์ชันของเว็บ">v1.4.8</span></h1>
+        <h1>Doc Checklist <span class="app-ver" title="เวอร์ชันของเว็บ">v1.5.0</span></h1>
         <p>ตรวจเอกสารตาม Document Standard ทีม Stealth Trade</p>
       </div>
     </div>
@@ -316,7 +320,7 @@ button,input,select{font:inherit;color:inherit}
         <div class="counts">
           <span class="k y">ผ่าน<b id="sYes">0</b></span>
           <span class="k n">ไม่ผ่าน<b id="sNo">0</b></span>
-          <span class="k a">N/A<b id="sNa">0</b></span>
+          <span class="k a">ไม่พบข้อมูล<b id="sNa">0</b></span>
         </div>
         <div class="errtot">ข้อผิดพลาดรวม <b id="sErr">0</b></div>
         <span class="pill pend" id="sResult">ยังตรวจไม่ครบ</span>
@@ -813,6 +817,14 @@ try {
 state.files = state.files || {};
 let saveT;
 function persist(){ clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {} }, 250); }
+// ล้างข้อความที่การตรวจอัตโนมัติรุ่นก่อนเติมไว้ (auto:true) ให้ข้อที่ผ่าน/ไม่พบข้อมูล และแถวคำแนะนำที่ไม่มีผล ข้อความที่ผู้ใช้พิมพ์มี auto:false จึงไม่ถูกแตะ
+let autoCleaned = false;
+Object.values(state.checks || {}).forEach(ch => Object.keys(ch).forEach(id => {
+  const c = ch[id]; if (!c || !c.auto || c.s === 'no' || (c.s && !('note' in c))) return;
+  if (c.s) delete c.note; else delete ch[id];
+  autoCleaned = true;
+}));
+if (autoCleaned) persist();
 function checksOf(code){ return state.checks[code] || (state.checks[code] = {}); }
 
 let currentSections = [];
@@ -907,13 +919,13 @@ function renderChecklist(){
     el.innerHTML = `<header class="sec-h"><div class="sec-t"><span class="sec-n">${si+1}</span><h3>${esc(sec.title)}</h3><span class="ref">${esc(sec.ref)}</span></div>
       <div class="sec-tools"><span class="sec-prog" data-prog="${sec.key}"></span>
       <button type="button" class="ghost" data-bulk="yes" data-sec="${sec.key}">ข้อที่เหลือ = ผ่าน</button>
-      <button type="button" class="ghost" data-bulk="na" data-sec="${sec.key}">ทั้งหมวด N/A</button></div></header>`;
+      <button type="button" class="ghost" data-bulk="na" data-sec="${sec.key}">ทั้งหมวด ไม่พบข้อมูล</button></div></header>`;
     const rows = document.createElement('div'); rows.className = 'rows';
     sec.items.forEach((t, ii) => {
       const id = itemId(sec, ii); const n = `${si+1}.${ii+1}`;
       const row = document.createElement('div'); row.className = 'row'; row.dataset.id = id;
-      row.innerHTML = `<div class="num">${n}</div><div class="txt">${esc(t)}<span class="auto-tag" hidden></span><div class="auto-note" hidden></div></div>
-        <div class="seg" role="group" aria-label="ผลตรวจ ข้อ ${n}"><button type="button" data-v="yes">ผ่าน</button><button type="button" data-v="no">ไม่ผ่าน</button><button type="button" data-v="na">N/A</button></div>
+      row.innerHTML = `<div class="num">${n}</div><div class="txt">${esc(t)}<span class="auto-tag" hidden>อัตโนมัติ</span></div>
+        <div class="seg" role="group" aria-label="ผลตรวจ ข้อ ${n}"><button type="button" data-v="yes">ผ่าน</button><button type="button" data-v="no">ไม่ผ่าน</button><button type="button" data-v="na">ไม่พบข้อมูล</button></div>
         <input class="note" id="note-${state.doc}-${id}" type="text" placeholder="รายละเอียด / หน้าที่พบ" aria-label="รายละเอียด ข้อ ${n}">
         <label class="errbox"><span class="lbl-m">ผิดพลาด</span><input class="err" id="err-${state.doc}-${id}" type="number" min="0" step="1" inputmode="numeric" aria-label="จำนวนข้อผิดพลาด ข้อ ${n}"></label>`;
       rows.append(row); syncRow(row);
@@ -929,8 +941,7 @@ function syncRow(row){
   const note = row.querySelector('.note'); if (document.activeElement !== note) note.value = c.note || '';
   const err = row.querySelector('.err'); err.disabled = c.s !== 'no';
   if (document.activeElement !== err) err.value = c.s === 'no' ? (c.err ?? 1) : '';
-  const tag = row.querySelector('.auto-tag'); tag.hidden = !c.auto; tag.textContent = c.s ? 'อัตโนมัติ' : 'คำแนะนำ'; tag.classList.toggle('hint', !c.s);
-  const an = row.querySelector('.auto-note'); an.hidden = !(c.auto && c.note); an.textContent = c.auto ? c.note || '' : '';
+  row.querySelector('.auto-tag').hidden = !c.auto;
 }
 function setCheck(id, patch){
   const ch = checksOf(state.doc); ch[id] = Object.assign({}, ch[id], patch);
@@ -1256,13 +1267,18 @@ async function buildPages(){
   const secCells = (sec, si) => [{w:CW, text:`${si + 1}. ${sec.title}  (${sec.ref})`, weight:700, fill:SECF}];
   const itemCells = (sec, si, ii) => {
     const c = ch[itemId(sec, ii)] || {};
-    const note = c.note || (c.s === 'na' ? 'ไม่เกี่ยวข้องกับเอกสารนี้' : '');
+    // ผ่าน/ไม่ผ่าน ติ๊กช่องเดียว อีกช่องว่าง ข้อที่ไม่พบข้อมูลรวมสองช่องเป็นช่องเดียว
+    // รายละเอียดกับจำนวนผิดพลาดที่ไม่มีข้อมูลใส่ "-" สีเทากลางช่อง ข้อที่ยังไม่ตรวจเว้นว่างทุกช่อง
+    // รายละเอียดแสดงเฉพาะข้อที่ไม่ผ่าน หมายเหตุของข้ออื่นยังอยู่ใน state แค่ไม่พิมพ์ลง PDF
+    const empty = w => ({w, text:c.s ? '-' : '', align:'center', color:GREY});
+    const note = c.s === 'no' ? String(c.note || '').trim() : '';
+    const marks = c.s === 'na' ? [{w:C[2] + C[3], text:'ไม่พบข้อมูล', align:'center', color:GREY, size:10}] : [
+      c.s === 'yes' ? {w:C[2], mark:'#166534'} : {w:C[2], text:''},
+      c.s === 'no' ? {w:C[3], mark:'#B91C1C', fill:'#FDF0EE'} : {w:C[3], text:''}];
     return [
-      {w:C[0], text:`${si + 1}.${ii + 1}`, align:'center'}, {w:C[1], text:sec.items[ii]},
-      c.s === 'yes' ? {w:C[2], mark:'#166534'} : {w:C[2], text:c.s === 'na' ? '–' : '', align:'center', color:GREY},
-      c.s === 'no' ? {w:C[3], mark:'#B91C1C', fill:'#FDF0EE'} : {w:C[3], text:c.s === 'na' ? '–' : '', align:'center', color:GREY},
-      {w:C[4], text:note, size:10, color:c.s === 'na' && !c.note ? GREY : INK},
-      {w:C[5], text:c.s === 'no' ? String(Math.max(0, parseInt(c.err, 10) || 0)) : (c.s ? '0' : ''), align:'center'}
+      {w:C[0], text:`${si + 1}.${ii + 1}`, align:'center'}, {w:C[1], text:sec.items[ii]}, ...marks,
+      note ? {w:C[4], text:note, size:10} : empty(C[4]),
+      c.s === 'no' ? {w:C[5], text:String(Math.max(0, parseInt(c.err, 10) || 0)), align:'center'} : empty(C[5])
     ];
   };
   // หัวหมวดต้องอยู่หน้าเดียวกับข้อแรกของหมวด (keep with next) วัดจากความสูงจริงของทั้งสองแถว
@@ -1280,7 +1296,7 @@ async function buildPages(){
   const sumRows = [
     [{w:SW, text:'รายการทั้งหมด', fill:LBL, weight:600}, {w:SW, text:`${st.total} ข้อ`, align:'center'}, {w:SW, text:'ตรวจแล้ว', fill:LBL, weight:600}, {w:SW, text:`${st.checked} ข้อ`, align:'center'}],
     [{w:SW, text:'ผ่าน', fill:LBL, weight:600}, {w:SW, text:`${st.yes} ข้อ`, align:'center'}, {w:SW, text:'ไม่ผ่าน', fill:LBL, weight:600}, {w:SW, text:`${st.no} ข้อ`, align:'center'}],
-    [{w:SW, text:'ไม่เกี่ยวข้อง (N/A)', fill:LBL, weight:600}, {w:SW, text:`${st.na} ข้อ`, align:'center'}, {w:SW, text:'จำนวนที่ผิดพลาด', fill:LBL, weight:600}, {w:SW, text:`${st.err} จุด`, align:'center'}],
+    [{w:SW, text:'ไม่พบข้อมูล', fill:LBL, weight:600}, {w:SW, text:`${st.na} ข้อ`, align:'center'}, {w:SW, text:'จำนวนที่ผิดพลาด', fill:LBL, weight:600}, {w:SW, text:`${st.err} จุด`, align:'center'}],
     [{w:SW, text:'ผลการตรวจ', fill:LBL, weight:600}, {w:CW - SW, text:st.label, weight:700, color:resColor, align:'center'}]
   ];
   const sumH = mm(7.5) + sumRows.reduce((s, r) => s + rowHeight(r, 10.5), 0);
@@ -1374,7 +1390,8 @@ $('#downloadBtn').addEventListener('click', e => withBusy(e.currentTarget, async
 
 /* ---------- auto check: read a .docx and pre-fill the rule-based items ---------- */
 // Only items that can be decided from the file's XML are set; content items stay for the reviewer.
-// s:'yes'|'no'|'na' sets the status, s:null leaves it open and only writes a hint into the detail box.
+// s:'yes'|'no'|'na' sets the status, s:null leaves it open as a hint. applyAuto only writes the note of a 'no' result
+// into the detail box; hints are listed in the result box above the checklist.
 const NS_W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 const NS_A = 'http://schemas.openxmlformats.org/drawingml/2006/main';
 const NS_WP = 'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing';
@@ -2029,14 +2046,16 @@ async function readDocx(file){
 function applyAuto(R){
   const ch = checksOf(state.doc);
   Object.keys(ch).forEach(id => { if (ch[id].auto) delete ch[id]; });
-  const ids = new Set(); currentSections.forEach(s => s.items.forEach((_, i) => ids.add(itemId(s, i))));
-  const out = {yes:0, no:0, na:0, hint:0, kept:0, total:ids.size};
-  Object.keys(R).forEach(id => {
-    if (!ids.has(id)) return;
-    const cur = ch[id]; if (cur && (cur.s || cur.note)) { out.kept++; return; }
-    const r = R[id];
-    ch[id] = r.s ? Object.assign({s:r.s, note:r.note, auto:true}, r.s === 'no' ? {err:r.err} : {}) : {note:r.note, auto:true};
-    out[r.s || 'hint']++;
+  const ids = new Map(); currentSections.forEach((s, si) => s.items.forEach((_, i) => ids.set(itemId(s, i), `${si + 1}.${i + 1}`)));
+  const out = {yes:0, no:0, na:0, kept:0, hints:[], total:ids.size};
+  ids.forEach((n, id) => {
+    const r = R[id], cur = ch[id]; if (!r) return;
+    // คำแนะนำไม่ลงช่องรายละเอียด แสดงในกล่องผลตรวจแทน ข้ามข้อที่ผู้ใช้ตอบแล้ว
+    if (!r.s) { if (r.note && !(cur && cur.s)) out.hints.push({n, note:r.note}); return; }
+    if (cur && (cur.s || cur.note)) { out.kept++; return; }
+    // รายละเอียดเติมเฉพาะข้อที่ไม่ผ่าน เพื่อบอกจุดที่ผิด
+    ch[id] = r.s === 'no' ? {s:'no', note:r.note || '', err:r.err, auto:true} : {s:r.s, auto:true};
+    out[r.s]++;
   });
   persist(); renderChecklist(); renderDocList();
   return out;
@@ -2058,8 +2077,9 @@ async function autoCheck(file){
     const opts = {code:state.doc, name:DOCS[state.doc].name, fileName:file.name, long:LONG.has(state.doc), meeting:MEETING.has(state.doc)};
     const R = excel ? analyzeXlsx(await readXlsx(file), opts) : analyzeDocx(await readDocx(file), opts);
     const o = applyAuto(R); const done = o.yes + o.no + o.na;
-    showAuto('', `<b>ตรวจ ${esc(file.name)} แล้ว</b> · ติ๊กผลให้ ${done} ข้อ (ผ่าน ${o.yes} · ไม่ผ่าน ${o.no} · N/A ${o.na}) · ใส่คำแนะนำ ${o.hint} ข้อ · ต้องตรวจเองอีก ${o.total - done} ข้อ` +
-      `<span class="sub">ข้อที่มีป้าย "อัตโนมัติ" ตรวจจากรูปแบบในไฟล์ ควรตรวจทานก่อนส่ง${o.kept ? ` · ไม่ทับ ${o.kept} ข้อที่ตรวจเองไว้แล้ว` : ''}</span>`);
+    showAuto('', `<b>ตรวจ ${esc(file.name)} แล้ว</b> · ติ๊กผลให้ ${done} ข้อ (ผ่าน ${o.yes} · ไม่ผ่าน ${o.no} · ไม่พบข้อมูล ${o.na}) · ต้องตรวจเองอีก ${o.total - done} ข้อ` +
+      `<span class="sub">ข้อที่มีป้าย "อัตโนมัติ" ตรวจจากรูปแบบในไฟล์ ควรตรวจทานก่อนส่ง${o.kept ? ` · ไม่ทับ ${o.kept} ข้อที่ตรวจเองไว้แล้ว` : ''}</span>` +
+      (o.hints.length ? `<span class="sub">คำแนะนำสำหรับข้อที่ต้องตรวจเอง ${o.hints.length} ข้อ</span><ul class="auto-hints">${o.hints.map(h => `<li>ข้อ ${h.n} ${esc(h.note)}</li>`).join('')}</ul>` : ''));
   } catch (e) {
     showAuto('bad', `ตรวจไม่สำเร็จ: ${esc(e.message || e)}`);
   } finally { btn.disabled = false; }
