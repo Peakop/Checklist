@@ -369,7 +369,7 @@ const GROUPS = [
   {name:'การออกแบบระบบ', docs:[['UCD','Use Case Diagram'],['UCDS','Use Case Description'],['AD','Activity Diagram'],['SD','Sequence Diagram'],['CD','Class Diagram'],['SMD','State Machine Diagram'],['ERD','Entity Relationship Diagram'],['DD','Data Dictionary'],['SM','Site Map']]},
   {name:'การทดสอบและคุณภาพ', docs:[['TP','Test Plan'],['TS','Test Scenario'],['TC','Test Case'],['TSC','Test Script'],['CL','Checklist'],['DTS','Defect Type Standard'],['IC','Inspection Coding'],['RVD','Revised Document']]},
   {name:'การวางแผนและติดตาม', docs:[['PP','Personal Plan'],['PSR','Plan Summary Report'],['WBS','Work Breakdown Structure'],['DOW','Division Of Workload'],['GC','Gantt Chart'],['MS','Milestone'],['MC','Master Chart'],['DC','Detail Chart'],['BC','Burndown Chart'],['VLC','Velocity Chart'],['RM','Risk Management'],['TG','Team Goal'],['RG','Role Goal'],['MG','Member Goal']]},
-  {name:'มาตรฐานและคู่มือ', docs:[['DS','Document Standard'],['CS','Coding Standard'],['UXIS','UX/UI Standard'],['VC','Version Control'],['APID','API Document'],['CM','Configuration Manual'],['INM','Introduction Manual'],['UM','User Manual']]},
+  {name:'มาตรฐานและคู่มือ', docs:[['DS','Document Standard'],['CS','Coding Standard'],['UXIS','UX/UI Standard'],['AS','Architectural Style'],['VC','Version Control'],['APID','API Document'],['CM','Configuration Manual'],['INM','Introduction Manual'],['UM','User Manual']]},
 ];
 const DOCS = {};
 GROUPS.forEach(g => g.docs.forEach(([code, name]) => DOCS[code] = {code, name, group:g.name}));
@@ -380,7 +380,7 @@ const AGENDA = new Set(['AMPO','AMT']);
 const REPORT = new Set(['MRPO','MRT','IM']);
 const CHART = new Set(['GC','MS','MC','DC','BC','VLC']);
 const SHEET = new Set(['PP','DC','MC','GC','RM']);          // ส่งเป็นไฟล์ Excel ไม่มีหน้ากระดาษ A4
-const LONG = new Set(['SRSD','TP','DS','CS','UXIS']);       // เอกสารยาวที่มีหน้าปก ตารางควบคุมการเปลี่ยนแปลง และสารบัญ
+const LONG = new Set(['SRSD','TP','DS','CS','UXIS','AS']);      // เอกสารยาวที่มีหน้าปก ตารางควบคุมการเปลี่ยนแปลง และสารบัญ
 const DIAGRAM_IMG = new Set(['UCD','AD','SD','CD','SMD','ERD','SM']);  // ส่งเป็นไฟล์ภาพเดี่ยว (.jpg/.png) ไม่มีหน้ากระดาษ
 
 /* id ของข้อตรวจ = key หมวด + ลำดับเดิม; หมวดที่ตัดบางข้อออก (pick) ยังใช้ id เดิม เพื่อให้ผลที่บันทึกไว้และการตรวจอัตโนมัติตรงข้อ */
@@ -755,6 +755,21 @@ function contentFor(code){
     'มาตรฐานฐานข้อมูลสอดคล้องกับ ERD และ Data Dictionary',
     'มีรูปแบบคอมเมนต์ระดับไฟล์ ฟังก์ชัน และในบรรทัด',
     'ทุกกฎมีตัวอย่างโค้ด'
+  ]);
+  case 'AS': return C('asx', 'เนื้อหาเอกสารสถาปัตยกรรมระบบ', [
+    'บทนำระบุวัตถุประสงค์ และขอบเขตของระบบที่เอกสารครอบคลุม',
+    'มีภาพรวมของระบบ และตารางขอบเขตโมดูลที่เปิดใช้งาน (Route และไฟล์หลัก)',
+    'ระบุรูปแบบสถาปัตยกรรมที่เลือกใช้ พร้อมแผนภาพภาพรวมสถาปัตยกรรม',
+    'มีตารางเปรียบเทียบรูปแบบสถาปัตยกรรมทางเลือก ระบุข้อดี ข้อจำกัด และผลการพิจารณา',
+    'มีตารางหน้าที่ความรับผิดชอบของแต่ละชั้น และกฎการสื่อสารระหว่างชั้น',
+    'มีองค์ประกอบฝั่งเซิร์ฟเวอร์ ได้แก่ Routing Middleware Controller และ Model',
+    'มีองค์ประกอบฝั่งไคลเอนต์ และแผนภาพคอมโพเนนต์ (Component Diagram)',
+    'มีตารางเทคโนโลยีที่ใช้พร้อมเวอร์ชัน',
+    'มีสถาปัตยกรรมการติดตั้งใช้งาน และแผนภาพการติดตั้งใช้งาน (Deployment Diagram)',
+    'มีโครงสร้างไดเรกทอรีของโปรเจกต์ที่ระบุชั้นสถาปัตยกรรมที่เกี่ยวข้อง',
+    'มีคุณลักษณะด้านคุณภาพ (Quality Attributes) และข้อจำกัดพร้อมแนวทางการพัฒนาต่อ',
+    'Route ชื่อไฟล์ และโครงสร้างตารางตรงกับ Source Code จริง ERD และ Data Dictionary',
+    'ชื่อหัวข้อในเนื้อหาตรงกับสารบัญ (เช่น ชื่อส่วนที่ 2)'
   ]);
   case 'UXIS': return C('uxisx', 'เนื้อหามาตรฐาน UX/UI', [
     'กำหนดชุดสีพร้อมรหัสสี (HEX)',
