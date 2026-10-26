@@ -185,6 +185,7 @@ button,input,select{font:inherit;color:inherit}
 .auto-txt span{font-size:12.5px;color:var(--muted)}
 .auto-res{margin:-6px 0 16px;padding:10px 14px;border-radius:var(--r-sm);font-size:13.5px;background:var(--accent-soft)}
 .auto-res.bad{background:var(--fail-soft);color:var(--fail)}
+.auto-act{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .auto-res .sub{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
 .auto-tag{display:inline-block;margin-left:8px;font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:0 7px;vertical-align:1px;white-space:nowrap}
 .auto-hints{margin:4px 0 0;padding-left:18px;font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}
@@ -230,7 +231,7 @@ button,input,select{font:inherit;color:inherit}
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6M9 4a2 2 0 0 0-2 2H6a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1a2 2 0 0 0-2-2"/><path d="m8.5 13.5 2.5 2.5 4.5-5"/></svg>
       </div>
       <div>
-        <h1>Doc Checklist <span class="app-ver" title="เวอร์ชันของเว็บ">v1.5.0</span></h1>
+        <h1>Doc Checklist <span class="app-ver" title="เวอร์ชันของเว็บ">v1.5.1</span></h1>
         <p>ตรวจเอกสารตาม Document Standard ทีม Stealth Trade</p>
       </div>
     </div>
@@ -379,7 +380,9 @@ const INVITE = new Set(['MIPO','MIT']);
 const AGENDA = new Set(['AMPO','AMT']);
 const REPORT = new Set(['MRPO','MRT','IM']);
 const CHART = new Set(['GC','MS','MC','DC','BC','VLC']);
-const SHEET = new Set(['PP','DC','MC','GC','RM']);          // ส่งเป็นไฟล์ Excel ไม่มีหน้ากระดาษ A4
+const SHEET = new Set(['PP','DC','MC','GC','RM','DOW']);    // ส่งเป็นไฟล์ Excel ไม่มีหน้ากระดาษ A4
+// ชุดตรวจแบบ Excel หรือ Word ตามที่ผู้ใช้เลือกไว้ใน state.format[code] ไม่ได้เลือกใช้ค่าเริ่มต้นจาก SHEET
+const isSheet = code => state.format && state.format[code] ? state.format[code] === 'xlsx' : SHEET.has(code);
 const LONG = new Set(['SRSD','TP','DS','CS','UXIS','AS']);      // เอกสารยาวที่มีหน้าปก ตารางควบคุมการเปลี่ยนแปลง และสารบัญ
 const DIAGRAM_IMG = new Set(['UCD','AD','SD','CD','SMD','ERD','SM']);  // ส่งเป็นไฟล์ภาพเดี่ยว (.jpg/.png) ไม่มีหน้ากระดาษ
 
@@ -703,6 +706,13 @@ function contentFor(code){
     'งานที่สถานะ Done มีวันที่สำเร็จจริง',
     'วันเริ่มไม่เกินกำหนดส่ง'
   ]);
+  case 'DOW': return C('dow', 'เนื้อหาการแบ่งงาน', [
+    'มีรายชื่อสมาชิกครบทุกคนตามโครงสร้างทีม',
+    'งานแต่ละรายการระบุผู้รับผิดชอบ',
+    'ระบุ Sprint หรือช่วงเวลาของงาน',
+    'ภาระงานกระจายสมดุล ไม่มีสมาชิกที่ไม่มีงาน',
+    'รายการงานสอดคล้องกับ WBS'
+  ]);
   case 'MC': case 'GC': return C('mgc', code === 'MC' ? 'เนื้อหา Master Chart' : 'เนื้อหา Gantt Chart', [
     'ส่วนหัวมีข้อมูลโครงการ ได้แก่ ชื่อระบบ PO บริษัท Team Leader ทีม และเวอร์ชัน',
     'เวอร์ชันในส่วนหัวตรงกับชื่อไฟล์',
@@ -785,7 +795,7 @@ function contentFor(code){
 }
 
 function sectionsFor(code){
-  const sheet = SHEET.has(code), img = DIAGRAM_IMG.has(code);
+  const sheet = isSheet(code), img = DIAGRAM_IMG.has(code);
   // ไฟล์ภาพแผนภาพไม่มีหน้ากระดาษ ตัวพิมพ์ หรือเลขหน้า และเวอร์ชันเทียบกับเอกสาร Version Control ของแผนภาพแทน
   const version = img ? Object.assign({}, SEC.version, {items:[...SEC.version.items.slice(0, 4), 'เวอร์ชันในชื่อไฟล์ตรงกับเวอร์ชันล่าสุดในเอกสาร Version Control (VC) ของแผนภาพนี้']}) : SEC.version;
   // UCDS และ VC เป็นตารางล้วน ไม่มีหัวข้อระดับต่าง ๆ และไม่มีบทนำ
@@ -824,12 +834,13 @@ function fileNameISO(name){
   return `${y >= 2400 ? y - 543 : y}-${m[2]}-${m[3]}`;
 }
 
-let state = { doc:'DS', info:{ fileName:'', author:'', qa:'', cycle:'', sprint:'', date:todayISO() }, checks:{}, files:{} };
+let state = { doc:'DS', info:{ fileName:'', author:'', qa:'', cycle:'', sprint:'', date:todayISO() }, checks:{}, files:{}, format:{} };
 try {
   const saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
   if (saved && saved.info) { state = Object.assign(state, saved); state.info = Object.assign({}, state.info, saved.info); if (!DOCS[state.doc]) state.doc = 'DS'; }
 } catch (e) {}
 state.files = state.files || {};
+state.format = state.format || {};
 let saveT;
 function persist(){ clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {} }, 250); }
 // ล้างข้อความที่การตรวจอัตโนมัติรุ่นก่อนเติมไว้ (auto:true) ให้ข้อที่ผ่าน/ไม่พบข้อมูล และแถวคำแนะนำที่ไม่มีผล ข้อความที่ผู้ใช้พิมพ์มี auto:false จึงไม่ถูกแตะ
@@ -1902,7 +1913,7 @@ function analyzeDocx(xml, opts){
   return R;
 }
 
-/* ---------- auto check: .xlsx (PP, DC, MC, GC, RM) ---------- */
+/* ---------- auto check: .xlsx (PP, DC, MC, GC, RM, DOW และเอกสารที่ผู้ใช้สลับเป็นชุดตรวจแบบ Excel) ---------- */
 const xAll = (el, n) => el ? toArr(el.getElementsByTagNameNS('*', n)) : [];
 const xKid = (el, n) => { if (el) for (let c = el.firstChild; c; c = c.nextSibling) if (c.nodeType === 1 && c.localName === n) return c; return null; };
 const xAtt = (el, n) => { if (el) for (const a of toArr(el.attributes)) if (a.localName === n) return a.value; return null; };
@@ -2076,29 +2087,69 @@ function applyAuto(R){
   return out;
 }
 function showAuto(kind, html){ const el = $('#autoRes'); el.className = 'auto-res' + (kind === 'bad' ? ' bad' : ''); el.innerHTML = html; el.hidden = false; }
+// ข้อผิดพลาดที่ผู้ใช้ต้องแก้ไฟล์เอง แสดงทั้งในกล่องผลตรวจและ toast
+function autoFail(msg){ showAuto('bad', esc(msg)); toast(msg); }
+const FMT_NAME = {xlsx:'Excel', docx:'Word'};
+/* ไฟล์ .docx/.xlsx จริงเป็น zip (ขึ้นต้นด้วย PK) ไฟล์ที่ตั้งรหัสผ่านและไฟล์ .doc/.xls รุ่นเก่าเป็นไฟล์ OLE (D0 CF 11 E0) */
+async function fileProblem(file, ext){
+  if (!file.size) return 'ไฟล์ว่างเปล่า (0 ไบต์) เลือกไฟล์ใหม่อีกครั้ง';
+  const b = new Uint8Array(await file.slice(0, 4).arrayBuffer());
+  if (b[0] === 0x50 && b[1] === 0x4B) return null;
+  if (b[0] === 0xD0 && b[1] === 0xCF && b[2] === 0x11 && b[3] === 0xE0) {
+    // ไฟล์ Office ที่ตั้งรหัสผ่านเก็บสตรีม EncryptionInfo (ชื่อสตรีมเป็น UTF-16LE)
+    const all = new TextDecoder('utf-16le').decode(await file.arrayBuffer());
+    if (all.includes('EncryptionInfo')) return `ไฟล์ ${file.name} ถูกตั้งรหัสผ่านไว้ เปิดในโปรแกรมแล้วเอารหัสผ่านออก (ไฟล์ > ข้อมูล > ป้องกัน) แล้วบันทึกใหม่ก่อนอัปโหลด`;
+    return ext === 'xlsx' ? `ไฟล์ ${file.name} เป็นไฟล์ Excel รุ่นเก่า (.xls) ที่เปลี่ยนนามสกุล เปิดใน Excel แล้วบันทึกเป็น .xlsx ก่อน`
+                          : `ไฟล์ ${file.name} เป็นไฟล์ Word รุ่นเก่า (.doc) ที่เปลี่ยนนามสกุล เปิดใน Word แล้วบันทึกเป็น .docx ก่อน`;
+  }
+  return `อ่านไฟล์ ${file.name} ไม่ได้ ไฟล์อาจเสียหรือไม่ใช่ไฟล์ .${ext} จริง ลองเปิดในโปรแกรมแล้วบันทึกใหม่`;
+}
+let pendingFile = null;   // ไฟล์ที่รอผู้ใช้ตอบว่าจะสลับชุดตรวจหรือไม่
 async function autoCheck(file){
   if (!file) return;
+  pendingFile = null;
+  // ดูจากนามสกุลเป็นหลัก เพราะบาง browser บน Mac ส่ง file.type มาเป็นค่าว่าง
   const ext = ((/\.([^.]+)$/.exec(file.name) || [])[1] || '').toLowerCase();
-  if (ext === 'doc' || ext === 'xls') { showAuto('bad', ext === 'doc' ? 'ไฟล์ .doc แบบเก่ายังไม่รองรับ เปิดใน Word แล้วบันทึกเป็น .docx ก่อน' : 'ไฟล์ .xls แบบเก่ายังไม่รองรับ เปิดใน Excel แล้วบันทึกเป็น .xlsx ก่อน'); return; }
-  if (ext !== 'docx' && ext !== 'xlsx') { showAuto('bad', `รองรับเฉพาะไฟล์ Word (.docx) และ Excel (.xlsx) แต่ไฟล์นี้คือ ${esc(file.name)}`); return; }
+  if (ext === 'doc' || ext === 'xls') { autoFail(ext === 'doc' ? 'ไฟล์ .doc แบบเก่ายังไม่รองรับ เปิดใน Word แล้วบันทึกเป็น .docx ก่อน' : 'ไฟล์ .xls แบบเก่ายังไม่รองรับ เปิดใน Excel แล้วบันทึกเป็น .xlsx ก่อน'); return; }
+  if (ext !== 'docx' && ext !== 'xlsx') { autoFail(`รองรับเฉพาะไฟล์ Word (.docx) และ Excel (.xlsx) แต่ไฟล์นี้คือ ${file.name}`); return; }
+  let bad; try { bad = await fileProblem(file, ext); } catch (e) { bad = `อ่านไฟล์ ${file.name} ไม่ได้ ลองเลือกไฟล์ใหม่อีกครั้ง`; }
+  if (bad) { autoFail(bad); return; }
   // รหัสแรกหลังวันที่ที่อยู่ในตารางรหัสเอกสาร (VC_UCD → VC, UC01_AD → AD)
   const code = file.name.replace(/\.[^.]+$/, '').split('_').slice(1).find(t => DOCS[t]);
   if (code && code !== state.doc) { selectDoc(code); toast(`เปลี่ยนเป็นเอกสาร ${code} ตามชื่อไฟล์`); }
   const excel = ext === 'xlsx';
-  if (SHEET.has(state.doc) !== excel) { showAuto('bad', excel ? `${esc(state.doc)} ส่งเป็นไฟล์ Word จึงตรวจจากไฟล์ Excel ไม่ได้ อัปโหลดไฟล์ .docx แทน` : `${esc(state.doc)} ส่งเป็นไฟล์ Excel อัปโหลดไฟล์ .xlsx แทน`); return; }
+  if (isSheet(state.doc) !== excel) {
+    // ไม่ปฏิเสธไฟล์ ถามก่อนว่าจะสลับชุดตรวจของเอกสารนี้ตามชนิดไฟล์หรือไม่
+    pendingFile = file;
+    const to = excel ? 'xlsx' : 'docx', from = excel ? 'Word' : 'Excel';
+    showAuto('', `<b>ไฟล์นี้เป็น ${FMT_NAME[to]} – สลับเป็นชุดตรวจแบบ ${FMT_NAME[to]} ไหม</b>` +
+      `<span class="sub">${esc(state.doc)} ใช้ชุดตรวจแบบ ${from} อยู่ ถ้าสลับ ระบบจะจำไว้สำหรับเอกสารนี้ และตรวจ ${esc(file.name)} ต่อทันที</span>` +
+      `<div class="auto-act"><button type="button" class="btn primary" data-fmt="${to}">สลับเป็นชุดตรวจแบบ ${FMT_NAME[to]}</button><button type="button" class="btn" data-fmt="cancel">ไม่สลับ</button></div>`);
+    return;
+  }
   state.info.fileName = file.name.replace(/\.(docx|xlsx)$/i, ''); $('#f-fileName').value = state.info.fileName; checkFileName(); persist();
   const btn = $('#autoBtn'); btn.disabled = true; showAuto('', `กำลังตรวจ ${esc(file.name)}…`);
   try {
     const opts = {code:state.doc, name:DOCS[state.doc].name, fileName:file.name, long:LONG.has(state.doc), meeting:MEETING.has(state.doc)};
     const R = excel ? analyzeXlsx(await readXlsx(file), opts) : analyzeDocx(await readDocx(file), opts);
     const o = applyAuto(R); const done = o.yes + o.no + o.na;
+    const fmt = state.format[state.doc], back = fmt && (fmt === 'xlsx') !== SHEET.has(state.doc) ? (fmt === 'xlsx' ? 'docx' : 'xlsx') : null;
     showAuto('', `<b>ตรวจ ${esc(file.name)} แล้ว</b> · ติ๊กผลให้ ${done} ข้อ (ผ่าน ${o.yes} · ไม่ผ่าน ${o.no} · ไม่พบข้อมูล ${o.na}) · ต้องตรวจเองอีก ${o.total - done} ข้อ` +
       `<span class="sub">ข้อที่มีป้าย "อัตโนมัติ" ตรวจจากรูปแบบในไฟล์ ควรตรวจทานก่อนส่ง${o.kept ? ` · ไม่ทับ ${o.kept} ข้อที่ตรวจเองไว้แล้ว` : ''}</span>` +
-      (o.hints.length ? `<span class="sub">คำแนะนำสำหรับข้อที่ต้องตรวจเอง ${o.hints.length} ข้อ</span><ul class="auto-hints">${o.hints.map(h => `<li>ข้อ ${h.n} ${esc(h.note)}</li>`).join('')}</ul>` : ''));
+      (o.hints.length ? `<span class="sub">คำแนะนำสำหรับข้อที่ต้องตรวจเอง ${o.hints.length} ข้อ</span><ul class="auto-hints">${o.hints.map(h => `<li>ข้อ ${h.n} ${esc(h.note)}</li>`).join('')}</ul>` : '') +
+      (back ? `<div class="auto-act"><button type="button" class="btn" data-fmt="${back}">กลับไปใช้ชุดตรวจแบบ ${FMT_NAME[back]}</button></div>` : ''));
   } catch (e) {
-    showAuto('bad', `ตรวจไม่สำเร็จ: ${esc(e.message || e)}`);
+    autoFail(`ตรวจไม่สำเร็จ: ${e.message || e}`);
   } finally { btn.disabled = false; }
 }
+$('#autoRes').addEventListener('click', e => {
+  const b = e.target.closest('[data-fmt]'); if (!b) return;
+  const f = pendingFile; pendingFile = null;
+  if (b.dataset.fmt === 'cancel') { $('#autoRes').hidden = true; toast('ไม่ได้ตรวจไฟล์ ชุดตรวจยังเหมือนเดิม'); return; }
+  state.format[state.doc] = b.dataset.fmt; persist(); renderChecklist(); renderDocList();
+  toast(`${state.doc} ใช้ชุดตรวจแบบ ${FMT_NAME[b.dataset.fmt]} แล้ว`);
+  if (f) autoCheck(f); else $('#autoRes').hidden = true;
+});
 $('#autoBtn').addEventListener('click', () => $('#autoFile').click());
 $('#autoFile').addEventListener('change', e => { autoCheck(e.target.files[0]); e.target.value = ''; });
 // a file dropped anywhere on the page goes to the checker instead of the browser opening it
