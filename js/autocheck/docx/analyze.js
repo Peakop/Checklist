@@ -8,8 +8,6 @@ import { findSecrets, redactText } from '../secrets.js';
 import { TH_CH, cm, egs, pt, snip, verCmp } from '../text.js';
 import { parseThaiDate, toBE } from '../../utils/thai-date.js';
 
-// ย่อหน้าที่พิมพ์เลขหรือสัญลักษณ์นำเอง นับเป็นรายการ ยกเว้นจากเกณฑ์ระยะ 0/8 pt (ข้อตกลง QA 2569-11-13)
-const LIST_PREFIX = /^(\d+(\.\d+)*\.?\s|\d+\)|\(\d+\)|[-•o]\s|วาระที่\s*\d)/;
 // "และ" "หรือ" ที่ติดคำข้างหน้า ไม่นับคำในรายการนี้ (แก้ได้) writing.3
 export const CONJ_SKIP = ['หรือไม่', 'แล้วและ'];
 // อักขระที่มองไม่เห็น lang.0
@@ -49,7 +47,6 @@ export function analyzeDocx(xml, opts){
   }
   // รายการในสารบัญ (TOC 1, TOC 2, Table of Figures) ไม่ใช่ TOC Heading ที่เป็นหัวเรื่อง "สารบัญ"
   const isToc = m => /^toc(?! heading)|table of figures/.test(m.style);
-  const isCaption = m => m.style === 'caption' || /^(ภาพ|ตาราง)\s*\d/.test(m.text.trim());
   // บรรทัดสารบัญที่ไม่ได้ใช้สไตล์ TOC ลงท้ายด้วยแท็บและเลขหน้า เช่น "2.1 ภาพรวม⇥3"
   const tocLine = m => /\t\s*[\dก-ฮ]{1,3}\s*$/.test(m.text);
   const inFlow = m => !cover.has(m.el) && !inCell(m.el) && !inTextbox(m.el) && !isToc(m) && !tocLine(m) && m.text.trim();
@@ -177,21 +174,6 @@ export function analyzeDocx(xml, opts){
     if (!bodyP.length) hint('font.4', 'ไม่พบย่อหน้าเนื้อหา');
     else if (bad.length) set('font.4', 'no', `${bad.length} ย่อหน้าไม่ใช่ 16 pt (${Object.keys(sizes).map(k => `${k} ${sizes[k]} ย่อหน้า`).join(', ')}) เช่น ${egs(bad, 'ย่อหน้า')} · ตรวจเฉพาะขนาด${skipNote}`, bad.length);
     else set('font.4', 'yes', `${bodyP.length} ย่อหน้าเนื้อหา 16 pt · ตรวจเฉพาะขนาด${skipNote}`);
-    // รายการ (bullet, ลำดับเลขอัตโนมัติ หรือเลข/สัญลักษณ์ที่พิมพ์นำเอง) ได้รับยกเว้นจากเกณฑ์ 0/8 pt หัวข้อย่อยไม่อยู่ใน bodyP อยู่แล้ว
-    const isList = m => m.pp.list || LIST_PREFIX.test(m.text.trim());
-    const listN = bodyP.filter(isList).length;
-    const listNote = listN ? ` · ไม่นับรายการ bullet หรือลำดับเลข ${listN} ย่อหน้า` : '';
-    const spP = bodyP.filter(m => !isCaption(m) && !isList(m));
-    const badS = []; const kinds = {};
-    spP.forEach(m => {
-      const b = m.pp.before || 0, a = m.pp.after || 0, line = m.pp.line != null ? m.pp.line : 240, rule = m.pp.lineRule || 'auto';
-      if (b === 0 && a === 160 && line === 240 && rule === 'auto' && !m.pp.autoB && !m.pp.autoA) return;
-      const k = `${rule === 'auto' ? 'บรรทัด ' + (line / 240).toFixed(2).replace(/\.?0+$/, '') : 'บรรทัด ' + line / 20 + ' pt'} ก่อน ${b / 20} หลัง ${a / 20} pt`;
-      kinds[k] = (kinds[k] || 0) + 1; badS.push(snip(m.text));
-    });
-    if (!spP.length) hint('spacing.0', 'ไม่พบย่อหน้าเนื้อหา');
-    else if (badS.length) set('spacing.0', 'no', `${badS.length} ย่อหน้า (${Object.keys(kinds).slice(0, 3).map(k => `${k}: ${kinds[k]}`).join(' · ')}) เช่น ${egs(badS, 'ย่อหน้า')}${listNote}`, badS.length);
-    else set('spacing.0', 'yes', `${spP.length} ย่อหน้า Single ก่อน 0 หลัง 8 pt${listNote}`);
   }
 
   /* --- page number (DS ข้อ 5) --- */
