@@ -8,6 +8,8 @@ export const CODE_FONT = /^(Consolas|Courier New|Cascadia (Code|Mono)|Menlo|Mona
 export const PLACEHOLDER = /ชื่อเอกสารภาษาไทย|ชื่อเอกสารภาษาอังกฤษ|lorem ipsum|คลิกหรือแตะที่นี่|click or tap here|ใส่ข้อความ|\bx{3,}\b/i;
 export const LEFTISH = new Set(['left','start','both','distribute','thaiDistribute','lowKashida','mediumKashida','highKashida']);
 export const MIN_IMG_EMU = 1440000;   // ภาพกว้างไม่ถึง 4 ซม. ถือเป็นโลโก้หรือไอคอน ไม่ต้องมีชื่อภาพ
+// ภาพกว้างและสูงอย่างน้อย 90% ของหน้า A4 (21 x 29.7 ซม.) ถือเป็นภาพพื้นหลังหรือภาพปก ไม่ต้องมีชื่อภาพ
+export const FULL_PAGE_EMU = [6804000, 9622800];
 /* อักขระที่ TH SarabunPSK ไม่มี Word จึงดึงฟอนต์อื่น (เช่น Arial, Segoe UI Symbol) มาแสดงแทน เปลี่ยนเป็น Sarabun ไม่ได้
    ช่วง: Greek, Arrows, Mathematical Operators, Misc Technical, Box Drawing, Geometric Shapes, Misc Symbols/Dingbats, emoji
    ยกเว้นตัวที่ฟอนต์มีจริง (ตรวจจาก cmap ของ assets/fonts/THSarabunPSK*.ttf): ∂ ∆ ∏ ∑ − √ ∞ ∫ ≈ ≠ ≤ ≥ ◊ ◌ */

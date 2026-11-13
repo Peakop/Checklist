@@ -231,3 +231,20 @@ test('H: dsx.2 ตารางรหัสเอกสารต้องมี�
   assert.match(R['dsx.2'].note, /ไม่มี SS, AS/);
   assert.equal((await run(tbl(codes), 'RD'))['dsx.2'], undefined);   // ตรวจเฉพาะ DS
 });
+
+/* ---------- ภาพ (image.0–3): ไม่นับภาพพื้นหลังและภาพบนหน้าปก ---------- */
+const A4 = {cx:7772400, cy:10703859};   // ภาพเต็มหน้า A4 แบบปก RD V1.6.0
+test('ภาพ: ภาพปกเต็มหน้าและภาพพื้นหลังไม่นับเป็นภาพในเอกสาร ได้ "ไม่พบข้อมูล"', async () => {
+  // ปกแบบ RD: ตัวหนังสือใหญ่ + ภาพเต็มหน้าบนหน้าแรก (RD ไม่ได้ตรวจส่วนนำ จึงไม่มีหน้าปกตามชุดตรวจ)
+  const R = await run([P('เนื้อหา'), {img:{cx:3000000, cy:2000000, anchor:true, behind:true}}], 'RD',
+    {coverBlocks:[{p:'Requirements Document', sz:96, b:true}, {img:Object.assign({anchor:true}, A4)}]});
+  for (const id of ['image.0', 'image.1', 'image.2', 'image.3']) assert.equal(R[id].s, 'na', `${id}: ${R[id].note}`);
+  // ภาพเต็มหน้าที่อยู่กลางเนื้อหาก็ไม่นับ
+  assert.equal((await run([P('เนื้อหา'), {img:Object.assign({anchor:true}, A4)}]))['image.0'].s, 'na');
+});
+
+test('ภาพ: ภาพประกอบเนื้อหาที่ไม่มีชื่อภาพยังไม่ผ่าน มีชื่อภาพกึ่งกลางผ่าน', async () => {
+  const pic = {img:{cx:4000000, cy:3000000, jc:'center'}};
+  no(await run([P('เนื้อหา'), pic, P('ย่อหน้าถัดไป')]), 'image.0', 1);
+  ok(await run([P('เนื้อหา'), pic, {caption:'ภาพ 1 ภาพตัวอย่าง', jc:'center'}]), 'image.0');
+});

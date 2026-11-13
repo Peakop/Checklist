@@ -1,5 +1,5 @@
 import { analyzeSecurityStandard } from './ss-rules.js';
-import { CODE_FONT, LEFTISH, MIN_IMG_EMU, NO_SARABUN_GLYPH, PLACEHOLDER, SARABUN, SYMBOL_FONT, TOC_KIND, charFmt, paraModel, readNumbering, readStyles, tableModel } from './model.js';
+import { CODE_FONT, FULL_PAGE_EMU, LEFTISH, MIN_IMG_EMU, NO_SARABUN_GLYPH, PLACEHOLDER, SARABUN, SYMBOL_FONT, TOC_KIND, charFmt, paraModel, readNumbering, readStyles, tableModel } from './model.js';
 import { NS_PIC, NS_WP, att, inCell, inFallback, inTextbox, ownerP, toArr, upTo, wAll, wKid, wKids } from './xml.js';
 import { FRONT_MATTER, classify, headFault, labelOf, numberLabels, ranges } from './levels.js';
 import { checkFileNameRules, resultSet } from '../result.js';
@@ -312,13 +312,20 @@ export function analyzeDocx(xml, opts){
   /* --- images (DS ข้อ 14) --- */
   const imgs = [];
   blocks.forEach((b, i) => {
-    if (b.localName !== 'p' || cover.has(b)) return;
+    // ภาพบนหน้าปกไม่ใช่ภาพประกอบเนื้อหา ทั้งเอกสารที่ตรวจส่วนนำ (cover) และเอกสารอื่นที่หน้าแรกเป็นปก (coverLike)
+    if (b.localName !== 'p' || cover.has(b) || coverLike.has(b)) return;
     const ds = wAll(b, 'drawing').filter(d => !inFallback(d) && ownerP(d) === b && wAll(d, 'pic', NS_PIC).length);
-    const pics = ds.filter(d => { const ex = wAll(d, 'extent', NS_WP)[0]; return !ex || +ex.getAttribute('cx') >= MIN_IMG_EMU; });
+    // ไม่นับโลโก้เล็ก และภาพพื้นหลัง (ยึดตำแหน่งแล้ววางหลังข้อความ หรือใหญ่เกือบเต็มหน้า A4 เช่น ภาพปก)
+    const background = d => {
+      const anc = d.getElementsByTagNameNS(NS_WP, 'anchor').item(0); if (!anc) return false;
+      const ex = wAll(d, 'extent', NS_WP)[0], cx = ex ? +ex.getAttribute('cx') : 0, cy = ex ? +ex.getAttribute('cy') : 0;
+      return anc.getAttribute('behindDoc') === '1' || (cx >= FULL_PAGE_EMU[0] && cy >= FULL_PAGE_EMU[1]);
+    };
+    const pics = ds.filter(d => { const ex = wAll(d, 'extent', NS_WP)[0]; return (!ex || +ex.getAttribute('cx') >= MIN_IMG_EMU) && !background(d); });
     const vml = wAll(b, 'pict').filter(x => !inFallback(x) && ownerP(x) === b && !wAll(x, 'txbxContent').length);
     if (pics.length || vml.length) imgs.push({i, m:M(b), anchor:pics.length > 0 && pics.every(d => d.getElementsByTagNameNS(NS_WP, 'anchor').length > 0)});
   });
-  if (!imgs.length) ['image.0','image.1','image.2'].forEach(id => set(id, 'na', 'ไม่พบภาพในเอกสาร (ไม่นับโลโก้ขนาดเล็ก)'));
+  if (!imgs.length) ['image.0','image.1','image.2'].forEach(id => set(id, 'na', 'ไม่พบภาพในเอกสาร (ไม่นับโลโก้ขนาดเล็ก ภาพพื้นหลัง และภาพบนหน้าปก)'));
   else {
     const e0 = [], e1 = [], e2 = []; let n = 0;
     imgs.forEach(({i, m, anchor}) => {
