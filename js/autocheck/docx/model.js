@@ -3,6 +3,8 @@ import { TH_CH } from '../text.js';
 
 export const SARABUN = /^TH\s*Sarabun\s*PSK$/i;
 export const SYMBOL_FONT = /^(Symbol|Wingdings.*|Webdings|Segoe UI (Symbol|Emoji)|Cambria Math|MS Gothic|MS Mincho)$/i;
+// ฟอนต์ของโค้ดตัวอย่าง (ไม่นับในข้อ font.0)
+export const CODE_FONT = /^(Consolas|Courier New|Cascadia (Code|Mono)|Menlo|Monaco|JetBrains Mono|Fira Code)$/i;
 export const PLACEHOLDER = /ชื่อเอกสารภาษาไทย|ชื่อเอกสารภาษาอังกฤษ|lorem ipsum|คลิกหรือแตะที่นี่|click or tap here|ใส่ข้อความ|\bx{3,}\b/i;
 export const LEFTISH = new Set(['left','start','both','distribute','thaiDistribute','lowKashida','mediumKashida','highKashida']);
 export const MIN_IMG_EMU = 1440000;   // ภาพกว้างไม่ถึง 4 ซม. ถือเป็นโลโก้หรือไอคอน ไม่ต้องมีชื่อภาพ
@@ -48,13 +50,18 @@ function pPrOf(pPr){
   }
   return o;
 }
-/* numbering.xml: numId → list key (abstractNum ที่ใช้ร่วมกัน) และรูปแบบแต่ละระดับ {fmt, text, start} */
+/* numbering.xml: numId → list key (abstractNum ที่ใช้ร่วมกัน) และรูปแบบแต่ละระดับ
+   {fmt, text (lvlText), start, font (ฟอนต์ของตัวเลขข้อ = ascii/hAnsi เพราะตัวเลขเป็นอักษรละติน)} */
 export function readNumbering(doc){
   const abs = {}, nums = {}, root = doc && doc.documentElement;
   if (root) {
     wKids(root, 'abstractNum').forEach(a => {
       const lv = {};
-      wKids(a, 'lvl').forEach(l => { lv[+att(l, 'ilvl')] = {fmt:att(wKid(l, 'numFmt')), text:att(wKid(l, 'lvlText')), start:+(att(wKid(l, 'start')) || 1)}; });
+      wKids(a, 'lvl').forEach(l => {
+        const f = wKid(wKid(l, 'rPr'), 'rFonts');
+        const font = f ? (att(f, 'asciiTheme') ? '@' + att(f, 'asciiTheme') : att(f, 'ascii') || att(f, 'hAnsi')) : null;
+        lv[+att(l, 'ilvl')] = {fmt:att(wKid(l, 'numFmt')), text:att(wKid(l, 'lvlText')), start:+(att(wKid(l, 'start')) || 1), font};
+      });
       abs[att(a, 'abstractNumId')] = lv;
     });
     wKids(root, 'num').forEach(n => { nums[att(n, 'numId')] = att(wKid(n, 'abstractNumId')); });
@@ -107,6 +114,8 @@ export function paraModel(p, S, tbl){
   const tm = tbl && tbl.style ? S.get(tbl.style) : null;
   const cond = tbl && tbl.firstRow && tm && tm.cond.firstRow ? tm.cond.firstRow : {r:{}, p:{}};
   const pp = Object.assign({}, S.defP, tm && tm.p, cond.p, sm.p, direct);
+  // รูปแบบเลขข้อจาก numbering.xml (S.N ตั้งโดย analyzeDocx) เช่น lvlText "%1." หรือ "%1.%2"
+  if (pp.numId && pp.numId !== '0' && S.N) { const L = S.N(pp.numId).lvl(pp.ilvl || 0); pp.lvlText = L.text; pp.numFmt = L.fmt; }
   const baseR = Object.assign({}, S.defR, tm && tm.r, cond.r, sm.r);
   const runs = wAll(p, 'r').filter(r => ownerP(r) === p).map(r => {
     const rp = rPrOf(wKid(r, 'rPr'));

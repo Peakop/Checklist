@@ -25,7 +25,7 @@ export const SHEET = new Set(['PP','DC','MC','GC','RM','DOW']);    // ส่ง�
 export const LONG = new Set(['SRSD','TP','DS','CS','UXIS','SS','AS']);      // เอกสารยาวที่มีหน้าปก ตารางควบคุมการเปลี่ยนแปลง และสารบัญ
 export const DIAGRAM_IMG = new Set(['UCD','AD','SD','CD','SMD','ERD','SM']);  // ส่งเป็นไฟล์ภาพเดี่ยว (.jpg/.png) ไม่มีหน้ากระดาษ
 // รหัสที่ทีมใช้แล้วแต่ยังไม่อยู่ในตาราง 3 (ตารางรหัสเอกสาร) ของ DS V2.2.0 ระบบยอมรับรหัสนี้ และแจ้งเป็นหมายเหตุ
-export const NOT_IN_DS = new Set(['SS']);
+export const NOT_IN_DS = new Set(['SS', 'AS']);
 export const notInDsNote = code => `รหัส ${code} ยังไม่อยู่ใน DS V2.2.0`;
 // ตัวอย่างชื่อไฟล์ในช่องชื่อไฟล์
 export const FILE_EG = {default:'2569-10-05_TP_V1.2.0', SS:'2569-10-25_SS_V1.0.0'};

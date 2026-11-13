@@ -1,6 +1,6 @@
 {
   "name": "doc-checklist",
-  "version": "1.6.2",
+  "version": "1.7.0",
   "private": true,
   "description": "เว็บตรวจเอกสารตาม Document Standard ของทีม Stealth Trade (https://peakop.github.io/Checklist/)",
   "type": "module",

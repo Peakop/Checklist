@@ -1,17 +1,26 @@
 import { analyzeSecurityStandard } from './ss-rules.js';
-import { LEFTISH, MIN_IMG_EMU, NO_SARABUN_GLYPH, PLACEHOLDER, SARABUN, SYMBOL_FONT, TOC_KIND, charFmt, paraModel, readNumbering, readStyles, tableModel } from './model.js';
-import { NS_PIC, NS_WP, att, inCell, inFallback, inTextbox, ownerP, upTo, wAll, wKid, wKids } from './xml.js';
+import { CODE_FONT, LEFTISH, MIN_IMG_EMU, NO_SARABUN_GLYPH, PLACEHOLDER, SARABUN, SYMBOL_FONT, TOC_KIND, charFmt, paraModel, readNumbering, readStyles, tableModel } from './model.js';
+import { NS_PIC, NS_WP, att, inCell, inFallback, inTextbox, ownerP, toArr, upTo, wAll, wKid, wKids } from './xml.js';
+import { FRONT_MATTER, classify, headFault, labelOf, numberLabels, ranges } from './levels.js';
 import { checkFileNameRules, resultSet } from '../result.js';
+import { DOCS } from '../../config/documents.js';
 import { findSecrets, redactText } from '../secrets.js';
 import { TH_CH, cm, egs, pt, snip, verCmp } from '../text.js';
 import { parseThaiDate, toBE } from '../../utils/thai-date.js';
+
+// ย่อหน้าที่พิมพ์เลขหรือสัญลักษณ์นำเอง นับเป็นรายการ ยกเว้นจากเกณฑ์ระยะ 0/8 pt (ข้อตกลง QA 2569-11-13)
+const LIST_PREFIX = /^(\d+(\.\d+)*\.?\s|\d+\)|\(\d+\)|[-•o]\s|วาระที่\s*\d)/;
+// "และ" "หรือ" ที่ติดคำข้างหน้า ไม่นับคำในรายการนี้ (แก้ได้) writing.3
+export const CONJ_SKIP = ['หรือไม่', 'แล้วและ'];
+// อักขระที่มองไม่เห็น lang.0
+const INVISIBLE = /[​-‍﻿]/g;
 
 /* xml: {document, styles, theme, headers:[], footers:[]} as parsed XML documents
    opts: {code, name, fileName, meeting} */
 export function analyzeDocx(xml, opts){
   const rs = resultSet(), {R, set, hint, tip} = rs;
   const S = readStyles(xml.styles, xml.theme);
-  const N = readNumbering(xml.numbering);
+  const N = S.N = readNumbering(xml.numbering);
   const body = xml.document && wAll(xml.document.documentElement, 'body')[0];
   if (!body) throw new Error('ไม่พบเนื้อหาในไฟล์ (word/document.xml)');
   const {fileVer, fileDate} = checkFileNameRules(rs, opts);
@@ -38,10 +47,44 @@ export function analyzeDocx(xml, opts){
     }
     if (cover.size === blocks.length) cover.clear();
   }
-  const isToc = m => /^toc|table of figures/.test(m.style);
+  // รายการในสารบัญ (TOC 1, TOC 2, Table of Figures) ไม่ใช่ TOC Heading ที่เป็นหัวเรื่อง "สารบัญ"
+  const isToc = m => /^toc(?! heading)|table of figures/.test(m.style);
   const isCaption = m => m.style === 'caption' || /^(ภาพ|ตาราง)\s*\d/.test(m.text.trim());
-  const isBody = m => !cover.has(m.el) && m.lvl == null && !inCell(m.el) && !inTextbox(m.el) && !isToc(m) && !/^(title|subtitle)$/.test(m.style) && m.text.trim();
-  const headings = lvl => allBodyP.filter(m => m.lvl === lvl && !cover.has(m.el) && !inCell(m.el) && !inTextbox(m.el) && m.text.trim());
+  // บรรทัดสารบัญที่ไม่ได้ใช้สไตล์ TOC ลงท้ายด้วยแท็บและเลขหน้า เช่น "2.1 ภาพรวม⇥3"
+  const tocLine = m => /\t\s*[\dก-ฮ]{1,3}\s*$/.test(m.text);
+  const inFlow = m => !cover.has(m.el) && !inCell(m.el) && !inTextbox(m.el) && !isToc(m) && !tocLine(m) && m.text.trim();
+
+  /* --- ระดับหัวข้อจากเลขข้อ (ข้อตกลง QA 2569-11-13, levels.js) --- */
+  const labels = numberLabels(allBodyP, N);
+  // หน้าแรกที่เป็นปก (ตัวหนังสือใหญ่ ไม่มีลำดับเลข) ไม่นับเป็นหัวเรื่อง แม้เอกสารนั้นไม่ได้ตรวจส่วนนำ
+  const coverLike = new Set(cover);
+  if (!cover.size) {
+    const first = [];
+    for (const b of blocks) {
+      if (b.localName === 'p' && M(b).pp.pbb && first.length) break;
+      first.push(...(b.localName === 'p' ? [b] : wAll(b, 'p')).filter(p => !inFallback(p)).map(M));
+      if (b.localName === 'p' && (wAll(b, 'br').some(x => att(x, 'type') === 'page') || wKid(wKid(b, 'pPr'), 'sectPr'))) break;
+    }
+    const big = first.some(m => charFmt(m, S).some(c => c.size >= 56));
+    if (first.length < allBodyP.length && big && first.filter(m => m.text.trim()).length <= 15 && !first.some(m => labels.has(m.el))) first.forEach(m => coverLike.add(m.el));
+  }
+  const level = new Map();   // el → 'title' | 'head' | 'sub'
+  {
+    // รายการ "1." ที่เริ่มนับ 1 ใหม่ต่อจากหัวข้อย่อย (เช่น ขั้นตอน 1. 2. 3. ใต้ข้อ 2.3) เป็นรายการซ้อนระดับลึกกว่า = เนื้อหา
+    // หัวข้อจริงจะนับต่อ (หัวข้อ 3. ต่อจากข้อ 2.1) หรือขึ้นหลังหัวเรื่องใหม่
+    let afterSub = false, nested = null;
+    const numOf = m => parseInt(labelOf(m, labels), 10);
+    allBodyP.forEach(m => {
+      if (!inFlow(m) || coverLike.has(m.el)) return;
+      const c = classify(m, S, labels); if (!c) return;
+      if (c === 'title') { afterSub = false; nested = null; }
+      else if (c === 'sub') { afterSub = true; nested = null; }
+      else if (c === 'head' && numOf(m) === (nested != null ? nested + 1 : afterSub ? 1 : NaN)) { nested = numOf(m); return; }
+      else nested = null;
+      level.set(m.el, c);
+    });
+  }
+  const isBody = m => inFlow(m) && !coverLike.has(m.el) && !level.has(m.el) && !/^(title|subtitle)$/.test(m.style);
 
   /* --- page size and margins (DS ข้อ 1) --- */
   const sects = wAll(body, 'sectPr').filter(s => !inFallback(s) && !upTo(s, a => a.localName === 'sectPrChange'));
@@ -63,11 +106,19 @@ export function analyzeDocx(xml, opts){
 
   /* --- fonts (DS ข้อ 2) --- */
   {
-    const other = {}, skip = {}; let badP = 0;
+    const other = {}, skip = {}; let badP = 0, codeN = 0;
     // run ที่มีแต่สัญลักษณ์ที่ TH SarabunPSK ไม่มี (เช่น →) ไม่นับ เพราะเปลี่ยนเป็น Sarabun ไม่ได้ ถ้าปนตัวอักษรทั่วไปยังนับเหมือนเดิม
     // run ที่มีแต่ช่องว่างไม่ถูกนับอยู่แล้ว เพราะ charFmt ไม่นับช่องว่าง
     const symOnly = t => { const cs = [...t].filter(ch => !/\s/.test(ch)); return cs.length > 0 && cs.every(NO_SARABUN_GLYPH); };
+    // โค้ดตัวอย่าง: ทุก run เป็นฟอนต์ monospace หรือใช้สไตล์ชื่อ Code / HTML Code
+    const codeStyle = id => !!id && /code/i.test(S.get(id).name);
+    const isCode = m => {
+      if (codeStyle(m.pp.ps)) return true;
+      const rs = m.runs.filter(r => r.text.trim());
+      return rs.length > 0 && rs.every(({e}) => codeStyle(e.rs) || CODE_FONT.test(S.font(e.fa)));
+    };
     allBodyP.concat(hdrP, ftrP).forEach(m => {
+      if (m.text.trim() && isCode(m)) { codeN++; return; }
       let bad = false;
       charFmt(m, S).forEach(c => {
         if (SARABUN.test(c.font) || SYMBOL_FONT.test(c.font)) return;
@@ -76,121 +127,61 @@ export function analyzeDocx(xml, opts){
       });
       if (bad) badP++;
     });
+    // ฟอนต์ของตัวเลขข้อ (rFonts ของ lvl ใน numbering.xml) ทุกระดับที่ใช้จริง 1 จุดต่อ 1 รูปแบบเลข ไม่นับ bullet (• o จาก Symbol, Courier New)
+    const numBad = new Map();
+    allBodyP.concat(hdrP, ftrP).forEach(m => {
+      const id = m.pp.numId; if (!id || id === '0') return;
+      const n = N(id), il = m.pp.ilvl || 0, L = n.lvl(il), k = `${n.key}:${il}`;
+      if (L.fmt === 'bullet' || L.fmt === 'none' || !L.font || numBad.has(k)) return;
+      const f = S.font(L.font);
+      if (!SARABUN.test(f) && !SYMBOL_FONT.test(f)) numBad.set(k, `"${(L.text || '').replace(/%\d/g, '1')}" ใช้ ${f}`);
+    });
     const sk = Object.keys(skip).sort((a, b) => skip[b] - skip[a]);
     const skipList = sk.slice(0, 5).map(ch => `${ch} ${skip[ch]} ตัว`).join(', ') + (sk.length > 5 ? ` และอีก ${sk.length - 5} แบบ` : '');
-    const skipNote = sk.length ? ` · ไม่นับ ${skipList} (TH SarabunPSK ไม่มีอักขระนี้)` : '';
+    const skipNote = (sk.length ? ` · ไม่นับ ${skipList} (TH SarabunPSK ไม่มีอักขระนี้)` : '') + (codeN ? ` · ไม่นับโค้ดตัวอย่าง ${codeN} ย่อหน้า` : '');
     const names = Object.keys(other).sort((a, b) => other[b].n - other[a].n);
-    if (names.length) set('font.0', 'no', `พบฟอนต์อื่น ${names.slice(0, 3).map(f => `${f} ${other[f].n} ตัวอักษร เช่น ${snip(other[f].eg)}`).join(' · ')}${names.length > 3 ? ` และอีก ${names.length - 3} ฟอนต์` : ''}${skipNote}`, badP);
-    else set('font.0', 'yes', `TH SarabunPSK ทั้งเอกสาร รวม Header และ Footer${skipNote}`);
-    if (sk.length) tip('font.0', `ไม่นับสัญลักษณ์ที่ TH SarabunPSK ไม่มี (ลูกศร เครื่องหมายคณิตศาสตร์ รูปทรง อีโมจิ อักษรกรีก) เพราะ Word ต้องใช้ฟอนต์อื่นแสดงแทน พบ ${skipList} · ถ้าสัญลักษณ์อยู่ติดกับข้อความทั่วไปในฟอนต์อื่น ยังนับเป็นจุดผิด`);
+    const parts = [];
+    if (names.length) parts.push(`พบฟอนต์อื่น ${names.slice(0, 3).map(f => `${f} ${other[f].n} ตัวอักษร เช่น ${snip(other[f].eg)}`).join(' · ')}${names.length > 3 ? ` และอีก ${names.length - 3} ฟอนต์` : ''}`);
+    if (numBad.size) parts.push(`ตัวเลขข้อ ${egs([...numBad.values()], 'รูปแบบ')}`);
+    if (parts.length) set('font.0', 'no', parts.join(' · ') + skipNote, badP + numBad.size);
+    else set('font.0', 'yes', `TH SarabunPSK ทั้งเอกสาร รวม Header Footer และตัวเลขข้อ${skipNote}`);
+    if (sk.length) tip('font.0', `ไม่นับสัญลักษณ์ที่ TH SarabunPSK ไม่มี เพราะ Word ต้องใช้ฟอนต์อื่นแสดงแทน พบ ${skipList} · ถ้าสัญลักษณ์อยู่ติดกับข้อความทั่วไปในฟอนต์อื่น ยังนับเป็นจุดผิด`);
   }
-  const LV = [{lvl:0, size:40, font:'font.1', sp:'spacing.1', before:320, after:40, name:'Heading 1 (หัวเรื่อง)'},
-              {lvl:1, size:36, font:'font.2', sp:'spacing.2', before:120, after:40, name:'Heading 2 (หัวข้อ)'}];
+
+  /* --- หัวเรื่อง หัวข้อ หัวข้อย่อย (font.1–3, spacing.1–2) แยกระดับจากเลขข้อ ดู levels.js --- */
+  const LV = [{cls:'title', size:40, font:'font.1', sp:'spacing.1', before:320, after:40, unit:'หัวเรื่อง', what:'หัวเรื่อง (ชื่อบท ส่วน หรือหน้าพิเศษที่ไม่มีเลขข้อ)'},
+              {cls:'head', size:36, font:'font.2', sp:'spacing.2', before:120, after:40, unit:'ข้อ', what:'หัวข้อ (ข้อเลข 1.)'},
+              {cls:'sub', size:32, font:'font.3', unit:'ข้อ', what:'หัวข้อย่อย (ข้อเลข 1.1)'}];
   LV.forEach(L => {
-    const hs = headings(L.lvl);
-    if (!hs.length) { hint(L.font, `ไม่พบย่อหน้าที่ใช้สไตล์ ${L.name} จึงตรวจขนาดอัตโนมัติไม่ได้ ตรวจด้วยตา`); if (L.sp) hint(L.sp, `ไม่พบย่อหน้าที่ใช้สไตล์ ${L.name}`); return; }
-    const bad = [];
-    hs.forEach(m => { const f = charFmt(m, S).find(c => c.size !== L.size || !c.bold); if (f) bad.push(`${snip(m.text)} ${pt(f.size)}${f.bold ? '' : ' ไม่หนา'}`); });
-    if (bad.length) set(L.font, 'no', `${bad.length} จาก ${hs.length} หัวข้อ: ${egs(bad, 'หัวข้อ')}`, bad.length); else set(L.font, 'yes', `${hs.length} หัวข้อ ขนาด ${pt(L.size)} ตัวหนา`);
+    const hs = allBodyP.filter(m => level.get(m.el) === L.cls);
+    if (!hs.length) { hint(L.font, `ไม่พบ${L.what} จึงตรวจอัตโนมัติไม่ได้ ตรวจด้วยตา`); if (L.sp) hint(L.sp, `ไม่พบ${L.what}`); return; }
+    const lab = m => { if (L.cls === 'title') return snip(m.text); const n = labelOf(m, labels); return !n ? snip(m.text) : L.cls === 'head' && /^\d+$/.test(n) ? n + '.' : n; };
+    const groups = new Map();
+    hs.forEach(m => { const f = headFault(m, L.size, TH_CH, pt); if (!f) return; if (!groups.has(f)) groups.set(f, []); groups.get(f).push(lab(m)); });
+    const badN = [...groups.values()].reduce((a, g) => a + g.length, 0);
+    if (badN) set(L.font, 'no', `${badN} จาก ${hs.length} ${L.unit} ${[...groups].map(([f, ls]) => `${f}: ${L.cls === 'title' ? egs(ls, L.unit) : ranges(ls)}`).join(' · ')}`, badN);
+    else set(L.font, 'yes', `${hs.length} ${L.unit} ขนาด ${pt(L.size)} ตัวหนา`);
     if (!L.sp) return;
     const badS = [];
-    hs.forEach(m => { const b = m.pp.before || 0, a = m.pp.after || 0; if (b !== L.before || a !== L.after || m.pp.autoB || m.pp.autoA) badS.push(`${snip(m.text)} ก่อน ${b / 20} หลัง ${a / 20} pt`); });
-    if (badS.length) set(L.sp, 'no', `${badS.length} จาก ${hs.length} หัวข้อ: ${egs(badS, 'หัวข้อ')}`, badS.length); else set(L.sp, 'yes', `${hs.length} หัวข้อ ก่อน ${L.before / 20} pt หลัง ${L.after / 20} pt`);
+    hs.forEach(m => { const b = m.pp.before || 0, a = m.pp.after || 0; if (b !== L.before || a !== L.after || m.pp.autoB || m.pp.autoA) badS.push(`${lab(m)} ก่อน ${b / 20} หลัง ${a / 20} pt`); });
+    if (badS.length) set(L.sp, 'no', `${badS.length} จาก ${hs.length} ${L.unit}: ${egs(badS, L.unit)}`, badS.length);
+    else set(L.sp, 'yes', `${hs.length} ${L.unit} ก่อน ${L.before / 20} pt หลัง ${L.after / 20} pt`);
   });
-
-  /* --- หัวข้อย่อย (ข้อ font.3) = ข้อที่มีเลขระดับถัดจากหัวข้อลงไป 1 ระดับ ต้อง 16 pt ตัวหนาทุกข้อ ---
-     ใช้ Heading style: หัวข้อ = Heading 2 หัวข้อย่อย = Heading 3
-     ไม่มี Heading: หัวข้อ = ย่อหน้ามีลำดับเลขที่หนา 18 pt (เช่น ilvl 0 "1.") หัวข้อย่อย = ระดับถัดลงไปในลำดับเลขเดียวกัน (ilvl 1 "1.1")
-     ทั้งสองแบบนับย่อหน้าที่พิมพ์เลขเองด้วย เช่น "1.1 " เมื่อหัวข้อเป็น "1." หรือ "1.1.1 " เมื่อหัวข้อเป็น "1.1" (SS) */
-  const subSet = new Set();
   {
-    // บรรทัดสารบัญที่ไม่ได้ใช้สไตล์ TOC ลงท้ายด้วยแท็บและเลขหน้า เช่น "2.1 ภาพรวม⇥3" ไม่ใช่หัวข้อย่อย
-    const tocLine = m => /\t\s*\d+\s*$/.test(m.text);
-    const inBody = m => !cover.has(m.el) && !inCell(m.el) && !inTextbox(m.el) && !isToc(m) && !tocLine(m) && m.text.trim();
-    const typedNo = m => (/^(\d+(?:\.\d+)*)\.?\s/.exec(m.text.trim()) || [])[1] || null;
-    // เลขอัตโนมัติที่ Word แสดง คำนวณจากลำดับย่อหน้า (ใช้รูปแบบ lvlText ใน numbering.xml ถ้ามี) ไม่นับ bullet
-    const numKey = m => m.pp.numId && m.pp.numId !== '0' ? N(m.pp.numId) : null;
-    const numLabel = new Map(), ctr = {};
-    allBodyP.forEach(m => {
-      const n = numKey(m); if (!n) return;
-      const il = m.pp.ilvl || 0, L = n.lvl(il);
-      if (L.fmt === 'bullet' || L.fmt === 'none') return;
-      const c = ctr[n.key] || (ctr[n.key] = []);
-      for (let k = 0; k < il; k++) if (c[k] == null) c[k] = n.lvl(k).start || 1;
-      c[il] = c[il] == null ? (L.start || 1) : c[il] + 1; c.length = il + 1;
-      const fmt = L.text != null ? L.text : c.map((_, k) => `%${k + 1}`).join('.');
-      numLabel.set(m.el, fmt.replace(/%(\d)/g, (_, k) => c[k - 1] != null ? c[k - 1] : 1).trim().replace(/[.)]$/, ''));
-    });
-    const noOf = m => typedNo(m) || numLabel.get(m.el) || null;
-    const depthOf = m => { const t = noOf(m); return t && /^\d+(\.\d+)*$/.test(t) ? t.split('.').length : null; };
-    const most = a => { const c = {}; a.forEach(v => { if (v != null) c[v] = (c[v] || 0) + 1; }); const k = Object.keys(c).sort((x, y) => c[y] - c[x] || x - y)[0]; return k == null ? null : +k; };
-    const big = m => { const f = charFmt(m, S); return f.length > 0 && f.every(c => c.bold && c.size === 36); };
-    const bodyAll = allBodyP.filter(inBody);
-    const useStyle = headings(1).length > 0 || headings(2).length > 0;
-    const heads = useStyle ? headings(1) : bodyAll.filter(m => m.lvl == null && noOf(m) && big(m));
-    // ระดับลำดับเลขของหัวข้อ (เลือกระดับที่พบมากที่สุด) ระดับถัดลงไปในรายการเดียวกันคือหัวข้อย่อย
-    const listHeads = heads.filter(m => numLabel.has(m.el));
-    const headIl = most(listHeads.map(m => m.pp.ilvl || 0));
-    const subLists = new Set(listHeads.filter(m => (m.pp.ilvl || 0) === headIl).map(m => numKey(m).key));
-    let d = most(heads.map(depthOf));
-    if (d == null && useStyle) { const d1 = most(headings(0).map(depthOf)); if (d1 != null) d = d1 + 1; }
-    const typedRe = d != null ? new RegExp(`^\\d+(?:\\.\\d+){${d}}\\.?\\s`) : null;
-    const headSet = new Set(heads.map(m => m.el));
-    bodyAll.forEach(m => {
-      if (headSet.has(m.el) || (m.lvl != null && m.lvl !== 2)) return;
-      const n = numLabel.has(m.el) ? numKey(m) : null;
-      if ((useStyle && m.lvl === 2) || (n && subLists.has(n.key) && (m.pp.ilvl || 0) === headIl + 1) || (!n && typedRe && typedRe.test(m.text.trim()))) subSet.add(m.el);
-    });
-    const subs = bodyAll.filter(m => subSet.has(m.el));
-    if (!subs.length) hint('font.3', 'ไม่พบหัวข้อย่อย (ข้อเลขระดับถัดจากหัวข้อ เช่น 1.1 หรือสไตล์ Heading 3) จึงตรวจอัตโนมัติไม่ได้ ตรวจด้วยตาว่าหัวข้อย่อยทุกข้อ 16 pt ตัวหนา');
-    else {
-      // ขนาดดูฝั่ง cs (szCs) เมื่อ run มีอักษรไทย ตัวหนานับทั้ง b และ bCs
-      const fault = m => {
-        const p = new Set();
-        m.runs.forEach(({e, text}) => {
-          if (!text.trim()) return;
-          const size = TH_CH.test(text) ? (e.szc != null ? e.szc : e.sz != null ? e.sz : 20) : (e.sz != null ? e.sz : 20);
-          if (size !== 32) p.add(`ขนาด ${pt(size)}`);
-          if (!e.b && !e.bc) p.add('ไม่หนา');
-        });
-        return [...p].sort().join(' ');
-      };
-      const groups = new Map();
-      subs.forEach(m => { const f = fault(m); if (!f) return; if (!groups.has(f)) groups.set(f, []); groups.get(f).push(noOf(m) || snip(m.text)); });
-      // 3.1, 3.2, 3.3 → 3.1–3.3
-      const ranges = labels => {
-        const out = [];
-        labels.forEach(l => {
-          const last = out[out.length - 1], p = /^(.*\.)(\d+)$/.exec(l);
-          if (last && p && last.pre === p[1] && last.to + 1 === +p[2]) { last.to++; last.n++; }
-          else out.push(p ? {pre:p[1], from:+p[2], to:+p[2], n:1} : {txt:l, n:1});
-        });
-        const txt = r => r.txt || (r.to - r.from >= 2 ? `${r.pre}${r.from}–${r.pre}${r.to}` : Array.from({length:r.to - r.from + 1}, (_, k) => `${r.pre}${r.from + k}`).join(', '));
-        const shown = out.slice(0, 6), rest = out.slice(6).reduce((a, r) => a + r.n, 0);
-        return shown.map(txt).join(', ') + (rest ? ` และอีก ${rest} ข้อ` : '');
-      };
-      const badN = [...groups.values()].reduce((a, g) => a + g.length, 0);
-      if (badN) set('font.3', 'no', `${badN} จาก ${subs.length} ข้อ ${[...groups].map(([f, ls]) => `${f}: ${ranges(ls)}`).join(' · ')}`, badN);
-      else set('font.3', 'yes', `${subs.length} ข้อ ขนาด 16 pt ตัวหนา`);
-    }
-  }
-  {
-    // a short, all-bold line set larger than body text is a heading typed by hand, not body text
-    const manualHead = m => { const f = charFmt(m, S); return m.text.trim().length <= 60 && f.length && f.every(c => c.bold && c.size > 32); };
-    // หัวข้อย่อยตรวจในข้อ font.3 แล้ว ไม่นำมาตรวจเป็นเนื้อหาอีก
-    const cand = allBodyP.filter(isBody), subN = cand.filter(m => subSet.has(m.el)).length;
-    const bodyP = cand.filter(m => !subSet.has(m.el) && !manualHead(m)), skipped = cand.length - subN - bodyP.length;
-    const skipNote = (skipped ? ` · ไม่นับหัวข้อที่จัดรูปแบบเอง ${skipped} บรรทัด` : '') + (subN ? ` · ไม่นับหัวข้อย่อย ${subN} ข้อ` : '');
+    // หัวเรื่อง หัวข้อ และหัวข้อย่อยตรวจในข้อ font.1–3 แล้ว ไม่นำมาตรวจเป็นเนื้อหาอีก
+    const bodyP = allBodyP.filter(isBody);
+    const headN = allBodyP.filter(m => level.has(m.el)).length;
+    const skipNote = headN ? ` · ไม่นับหัวเรื่อง หัวข้อ และหัวข้อย่อย ${headN} ย่อหน้า` : '';
     const sizes = {}; const bad = [];
     bodyP.forEach(m => { const f = charFmt(m, S).find(c => c.size !== 32); if (f) { bad.push(snip(m.text)); sizes[pt(f.size)] = (sizes[pt(f.size)] || 0) + 1; } });
     if (!bodyP.length) hint('font.4', 'ไม่พบย่อหน้าเนื้อหา');
     else if (bad.length) set('font.4', 'no', `${bad.length} ย่อหน้าไม่ใช่ 16 pt (${Object.keys(sizes).map(k => `${k} ${sizes[k]} ย่อหน้า`).join(', ')}) เช่น ${egs(bad, 'ย่อหน้า')} · ตรวจเฉพาะขนาด${skipNote}`, bad.length);
     else set('font.4', 'yes', `${bodyP.length} ย่อหน้าเนื้อหา 16 pt · ตรวจเฉพาะขนาด${skipNote}`);
-    // list items (bullets, numbering) are usually set tight on purpose, so only plain paragraphs are held to 0/8 pt
-    const spBase = cand.filter(m => !manualHead(m));   // ระยะบรรทัดตรวจชุดเดิม รวมหัวข้อย่อยที่พิมพ์เลขเอง
-    const listN = spBase.filter(m => m.pp.list).length;
+    // รายการ (bullet, ลำดับเลขอัตโนมัติ หรือเลข/สัญลักษณ์ที่พิมพ์นำเอง) ได้รับยกเว้นจากเกณฑ์ 0/8 pt หัวข้อย่อยไม่อยู่ใน bodyP อยู่แล้ว
+    const isList = m => m.pp.list || LIST_PREFIX.test(m.text.trim());
+    const listN = bodyP.filter(isList).length;
     const listNote = listN ? ` · ไม่นับรายการ bullet หรือลำดับเลข ${listN} ย่อหน้า` : '';
-    const spP = spBase.filter(m => !isCaption(m) && !m.pp.list);
+    const spP = bodyP.filter(m => !isCaption(m) && !isList(m));
     const badS = []; const kinds = {};
     spP.forEach(m => {
       const b = m.pp.before || 0, a = m.pp.after || 0, line = m.pp.line != null ? m.pp.line : 240, rule = m.pp.lineRule || 'auto';
@@ -209,7 +200,14 @@ export function analyzeDocx(xml, opts){
     const inH = pageF(hdrP), inF = pageF(ftrP);
     if (!inH.length) set('pagenum.1', 'no', inF.length ? 'เลขหน้าอยู่ใน Footer ไม่ใช่ Header' : 'ไม่พบฟิลด์เลขหน้า (PAGE) ใน Header');
     else {
-      const pos = ({m, f}) => { const jc = m.pp.jc || 'left'; if (jc === 'right' || jc === 'end') return 'right'; if (jc === 'center') return 'center'; const tabs = (f.pre.match(/\t/g) || []).length; return tabs >= 2 ? 'right' : tabs === 1 ? 'tab' : 'left'; };
+      // เลขหน้าในกล่องข้อความที่ยึดตำแหน่งชิดขวา (positionH align = right) อยู่มุมขวา แม้ย่อหน้าในกล่องจัดกึ่งกลาง
+      const boxRight = m => {
+        const anc = upTo(m.el, a => a.localName === 'anchor' && a.namespaceURI === NS_WP);
+        const ph = anc && toArr(anc.childNodes).find(c => c.localName === 'positionH');
+        const al = ph && toArr(ph.childNodes).find(c => c.localName === 'align');
+        return !!al && al.textContent.trim() === 'right';
+      };
+      const pos = ({m, f}) => { if (boxRight(m)) return 'right'; const jc = m.pp.jc || 'left'; if (jc === 'right' || jc === 'end') return 'right'; if (jc === 'center') return 'center'; const tabs = (f.pre.match(/\t/g) || []).length; return tabs >= 2 ? 'right' : tabs === 1 ? 'tab' : 'left'; };
       const ps = inH.map(pos);
       if (ps.includes('right')) set('pagenum.1', 'yes', 'เลขหน้าใน Header จัดชิดขวา');
       else if (ps.includes('tab')) hint('pagenum.1', 'เลขหน้าอยู่ใน Header แต่จัดตำแหน่งด้วยแท็บ ตรวจด้วยตาว่าอยู่มุมขวา');
@@ -223,6 +221,35 @@ export function analyzeDocx(xml, opts){
       if (bad.length) set('pagenum.2', 'no', `เลขหน้าใช้ ${[...new Set(bad)].join(', ')}`); else set('pagenum.2', 'yes', 'TH SarabunPSK 16 pt');
     }
   }
+  {
+    /* pagenum.0: เลข 1 เริ่มที่ "บทนำ" ถ้าไม่มีบทนำ เริ่มที่หัวเรื่องแรกของเนื้อหาต่อจากส่วนนำ
+       ไม่ตรวจลำดับส่วนนำ และปกจะนับเป็น ก หรือไม่นับก็ได้ */
+    const secOf = new Map(); let si = 0;
+    blocks.forEach(b => { secOf.set(b, si); if (b.localName === 'p' && wKid(wKid(b, 'pPr'), 'sectPr')) si++; });
+    const pg = sects.map(s => { const t = wKid(s, 'pgNumType'); return {fmt:att(t, 'fmt') || 'decimal', start:att(t, 'start')}; });
+    const firstText = k => {
+      for (const b of blocks) {
+        if (secOf.get(b) !== k) continue;
+        const m = (b.localName === 'p' ? [b] : wAll(b, 'p')).filter(p => !inFallback(p) && !inTextbox(p)).map(M).find(x => x.text.trim());
+        if (m) return m;
+      }
+      return null;
+    };
+    const titles = allBodyP.filter(m => level.get(m.el) === 'title' && secOf.has(m.el));
+    const intro = titles.find(m => /บทนำ$/.test(m.text.trim()));
+    const target = intro || titles.find(m => !FRONT_MATTER.test(m.text.trim()));
+    const hasFront = titles.some(m => FRONT_MATTER.test(m.text.trim()));
+    const what = intro ? '"บทนำ"' : `หน้าแรกของเนื้อหา ${target ? snip(target.text) : ''}`;
+    if (!target) hint('pagenum.0', 'ไม่พบบทนำหรือหัวเรื่องของเนื้อหา ตรวจด้วยตาว่าเลขหน้า 1 เริ่มที่หน้าแรกของเนื้อหา');
+    else {
+      const k = secOf.get(target.el), p = pg[k], first = firstText(k);
+      const restart = pg.findIndex(x => x.fmt === 'decimal' && x.start === '1');
+      if (p && p.fmt === 'decimal' && p.start === '1' && first && first.el === target.el) set('pagenum.0', 'yes', `เลขหน้า 1 เริ่มที่ ${what}`);
+      else if (restart < 0 && !hasFront) set('pagenum.0', 'yes', 'ไม่มีส่วนนำ เลขหน้าเริ่ม 1 ตั้งแต่หน้าแรก');
+      else if (restart < 0) set('pagenum.0', 'no', `ไม่ได้เริ่มเลขหน้า 1 ใหม่ที่ ${what} (ตั้ง Section Break แล้ว Format Page Numbers → Start at 1)`);
+      else { const f = firstText(restart); set('pagenum.0', 'no', `เลขหน้า 1 เริ่มที่ ${f ? snip(f.text) : `ส่วนที่ ${restart + 1}`} ไม่ใช่ ${what}`); }
+    }
+  }
 
   /* --- TOC fields --- */
   const tocAt = {};
@@ -234,6 +261,19 @@ export function analyzeDocx(xml, opts){
   const infoBox = t => t.cols === 2 && t.rows.every(r => r[0] && boldCell(r[0])) && t.rows.some(r => r[1] && !boldCell(r[1]));
   const gridT = blocks.map((b, i) => ({b, i})).filter(x => x.b.localName === 'tbl' && !cover.has(wAll(x.b, 'p')[0])).map(x => Object.assign(tables.get(x.b), {i:x.i})).filter(t => t.rows.length >= 2 && t.cols >= 2);
   const realT = gridT.filter(t => !infoBox(t)), boxN = gridT.length - realT.length;
+  /* หัวตาราง = แถวหัวคอลัมน์ ไม่ใช่แถวแรกเสมอไป: ข้ามแถวคีย์-ค่าด้านบน (2 ช่องมีข้อความ ช่องแรกเป็นป้ายชื่อ อาจมี gridSpan)
+     แล้วใช้แถวแรกถัดไปที่ทุกช่องมีข้อความ คืน -1 เมื่อทั้งตารางเป็นคีย์-ค่า (ข้อตกลง QA 2569-11-13) */
+  const KV_LABEL = /^(ชื่อเอกสาร|เวอร์ชัน(ปัจจุบัน)?|วันที่(แก้ไข|จัดทำ)|ผู้รับผิดชอบ|ผู้จัดทำ|ผู้ตรวจ|ผู้อนุมัติ|รหัสเอกสาร)/;
+  const kvRow = (t, r) => {
+    const f = r.filter(c => t.cellText(c));
+    return f.length === 2 && (r.length < t.cols || KV_LABEL.test(t.cellText(f[0])) || (boldCell(f[0]) && !boldCell(f[1])));
+  };
+  const headRow = t => {
+    let i = 0; while (i < t.rows.length && kvRow(t, t.rows[i])) i++;
+    for (let k = i; k < Math.min(t.rows.length, i + 2); k++) if (t.rows[k].length >= 2 && t.rows[k].every(c => t.cellText(c))) return k;
+    return -1;
+  };
+  const capOf = t => { const m = [near(t.i, -1), near(t.i, 1)].find(x => x && /^ตาราง\s*[\d.-]+/.test(x.text.trim())); return m ? /^ตาราง\s*[\d.-]+/.exec(m.text.trim())[0].replace(/\s+/, ' ') : `ตารางที่ขึ้นต้น ${snip(t.cellText(t.rows[0][0] || []) || 'ตาราง')}`; };
   const boxNote = boxN ? ` · ข้ามตารางข้อมูลแนวตั้ง ${boxN} ตาราง` : '';
   // nearest paragraph with text; looking upward also steps over a table directly above (two tables under one caption)
   const near = (i, dir) => {
@@ -260,16 +300,28 @@ export function analyzeDocx(xml, opts){
     if (!caps.length) hint('table.3', 'ไม่พบชื่อตาราง');
     else if (badFmt.length) set('table.3', 'no', `ไม่ตรงรูปแบบ "ตาราง [ลำดับ]": ${egs(badFmt)}`, badFmt.length);
     else set('table.3', 'yes', `${caps.length} ชื่อตาราง`);
-    const badHead = [], badNum = []; let numT = 0;
-    realT.forEach(t => {
-      const lbl = snip(t.cellText(t.rows[0][0] || []) || 'ตาราง');
-      const probs = new Set();
-      t.rows[0].forEach(c => c.forEach(m => { if (!m.text.trim()) return; if (m.pp.jc !== 'center') probs.add('ไม่กึ่งกลาง'); if (charFmt(m, S).some(x => !x.bold)) probs.add('ไม่หนา'); }));
-      if (probs.size) badHead.push(`${lbl} ${[...probs].join(' ')}`);
-      const nums = t.rows.slice(1).map(r => r[0] || []).filter(c => /^\d+(\.\d+)*\.?$/.test(t.cellText(c)));
-      if (nums.length) { numT++; if (nums.some(c => c.some(m => m.text.trim() && m.pp.jc !== 'center'))) badNum.push(lbl); }
+    const badHead = [], badNum = []; let headT = 0, kvT = 0, numT = 0;
+    // ช่องลำดับที่ใช้เลขอัตโนมัติ (มี numPr แต่ข้อความว่าง) นับเป็นตัวเลข
+    const autoNum = c => c.some(m => m.pp.numId && m.pp.numId !== '0');
+    const numCell = (t, c) => { const x = t.cellText(c); return x ? /^\d+(\.\d+)?\.?$/.test(x) : autoNum(c); };
+    gridT.forEach(t => {
+      const hr = headRow(t);
+      if (hr < 0) { kvT++; return; }
+      headT++;
+      t.rows[hr].forEach(c => {
+        const probs = new Set();
+        c.forEach(m => { if (!m.text.trim()) return; if (m.pp.jc !== 'center') probs.add('ไม่กึ่งกลาง'); if (charFmt(m, S).some(x => !x.bold)) probs.add('ไม่หนา'); });
+        if (probs.size) badHead.push(`${capOf(t)}: ${snip(t.cellText(c))} ${[...probs].join(' ')}`);
+      });
+      // คอลัมน์ลำดับ = คอลัมน์ที่หัวเป็น "ลำดับ" ถ้าไม่มี ใช้คอลัมน์แรกที่เป็นตัวเลข
+      const ci = t.rows[hr].findIndex(c => /^ลำดับ/.test(t.cellText(c)));
+      const nums = t.rows.slice(hr + 1).map(r => r[ci < 0 ? 0 : ci]).filter(c => c && numCell(t, c));
+      if (nums.length) { numT++; if (nums.some(c => c.some(m => (m.text.trim() || autoNum([m])) && m.pp.jc !== 'center'))) badNum.push(capOf(t)); }
     });
-    if (badHead.length) set('table.0', 'no', `หัวตาราง ${egs(badHead, 'ตาราง')}${boxNote}`, badHead.length); else set('table.0', 'yes', `หัวตาราง ${realT.length} ตาราง กึ่งกลาง ตัวหนา${boxNote}`);
+    const kvNote = kvT ? ` · ข้ามตารางคีย์-ค่า ${kvT} ตาราง` : '';
+    if (!headT) set('table.0', 'na', `ไม่พบตารางที่มีแถวหัวคอลัมน์${kvNote}`);
+    else if (badHead.length) set('table.0', 'no', `หัวตาราง ${egs(badHead)}${kvNote}`, badHead.length);
+    else set('table.0', 'yes', `หัวตาราง ${headT} ตาราง กึ่งกลาง ตัวหนา${kvNote}`);
     if (!numT) set('table.1', 'na', 'ไม่พบคอลัมน์ลำดับเลขในตาราง');
     else if (badNum.length) set('table.1', 'no', `ลำดับเลขไม่กึ่งกลาง: ${egs(badNum, 'ตาราง')}`, badNum.length);
     else set('table.1', 'yes', `${numT} ตาราง`);
@@ -310,12 +362,37 @@ export function analyzeDocx(xml, opts){
 
   /* --- front matter (long documents) --- */
   {
-    const ctl = realT.find(t => { const h = t.rows[0].map(t.cellText).join(' '); return /เวอร์ชัน|version/i.test(h) && /วันที่|date/i.test(h); });
+    // ตารางควบคุมการเปลี่ยนแปลง: แถวหัวคอลัมน์ (ข้ามแถวคีย์-ค่าด้านบน) มีเวอร์ชันและวันที่
+    const ctl = gridT.map(t => Object.assign(t, {hr:headRow(t)})).find(t => { if (t.hr < 0) return false; const h = t.rows[t.hr].map(t.cellText).join(' '); return /เวอร์ชัน|version/i.test(h) && /วันที่|date/i.test(h); });
     if (ctl) set('front.1', 'yes', 'พบตารางควบคุมการเปลี่ยนแปลง'); else set('front.1', 'no', 'ไม่พบตารางที่มีคอลัมน์เวอร์ชันและวันที่');
+    // front.0: ชื่อระบบบนปก (รวมกล่องข้อความ) ภาพปกตรวจอัตโนมัติไม่ได้
+    {
+      const src = cover.size ? [...cover] : blocks.slice(0, Math.max(1, blocks.findIndex(b => b.localName === 'p' && wKid(wKid(b, 'pPr'), 'sectPr')) + 1)).flatMap(b => b.localName === 'p' ? [b, ...wAll(b, 'p')] : wAll(b, 'p'));
+      const txt = src.map(p => wAll(p, 't').filter(t => ownerP(t) === p).map(t => t.textContent).join('')).join(' ');
+      hint('front.0', /stealth\s*trade/i.test(txt) ? 'พบชื่อระบบ "Stealth Trade" บนปก ตรวจชื่อเอกสารและทีมด้วยตา' : 'ไม่พบชื่อระบบบนปก ตรวจภาพปก');
+    }
+    // version.2: แถวที่ขึ้นแค่หลักที่สาม แต่รายการที่แก้เป็นการเพิ่มหรือแก้เนื้อหา (ข้อตกลง: ต้องขึ้นหลักที่สอง)
+    if (ctl) {
+      const hrow = ctl.rows[ctl.hr].map(ctl.cellText);
+      const ci = hrow.findIndex(h => /รายการ|รายละเอียด/.test(h));
+      const rows = ctl.rows.slice(ctl.hr + 1).map(r => {
+        const v = (/\d+\.\d+\.\d+/.exec(r.map(ctl.cellText).join(' ')) || [])[0];
+        const items = (ci >= 0 && r[ci] ? r[ci] : [].concat(...r)).flatMap(m => m.text.split(/\n|\s(?=[-•]\s?\S)/)).map(s => s.replace(/^\s*[-•]\s*/, '').trim()).filter(Boolean);
+        return {v, items};
+      }).filter(x => x.v).sort((a, b) => verCmp(a.v, b.v));
+      const sus = [];
+      rows.forEach((x, i) => {
+        const p = rows[i - 1]; if (!p) return;
+        const a = x.v.split('.').map(Number), b = p.v.split('.').map(Number);
+        const it = x.items.find(s => /เพิ่ม|เขียนข้อมูล|เนื้อหา|หัวข้อ/.test(s));
+        if (a[0] === b[0] && a[1] === b[1] && a[2] > b[2] && it) sus.push(`${x.v} ${it.length > 40 ? it.slice(0, 40) + '…' : it}`);
+      });
+      hint('version.2', sus.length ? `อาจต้องขึ้นหลักที่สอง: ${egs(sus, 'แถว')}` : `ตารางควบคุมการเปลี่ยนแปลง ${rows.length} แถว ไม่พบแถวที่ขึ้นแค่หลักที่สามแต่เพิ่มหรือแก้เนื้อหา ตรวจด้วยตา`);
+    }
     if (!ctl) hint('front.2', 'ไม่พบตารางควบคุมการเปลี่ยนแปลง');
     else {
       let last = null;
-      ctl.rows.slice(1).forEach(r => { const txt = r.map(ctl.cellText).join(' '); const v = (/\d+\.\d+\.\d+/.exec(txt) || [])[0]; if (v && (!last || verCmp(v, last.v) >= 0)) last = {v, txt}; });
+      ctl.rows.slice(ctl.hr + 1).forEach(r => { const txt = r.map(ctl.cellText).join(' '); const v = (/\d+\.\d+\.\d+/.exec(txt) || [])[0]; if (v && (!last || verCmp(v, last.v) >= 0)) last = {v, txt}; });
       if (!last) hint('front.2', 'ไม่พบเลขเวอร์ชันในตารางควบคุมการเปลี่ยนแปลง');
       else if (!fileVer) hint('front.2', `เวอร์ชันล่าสุดในตาราง ${last.v} แต่ชื่อไฟล์ไม่มีเวอร์ชัน`);
       else if (last.v !== fileVer) set('front.2', 'no', `เวอร์ชันล่าสุดในตาราง ${last.v} แต่ชื่อไฟล์ V${fileVer}`);
@@ -381,6 +458,43 @@ export function analyzeDocx(xml, opts){
     hint('writing.4', kue.length ? `น่าสงสัย ${kue.length} จุด ตรวจด้วยตา: ${egs(kue)}` : 'ไม่พบจุดที่น่าสงสัย ตรวจด้วยตาอีกครั้ง');
     const br = find(/[^\s(]\(|\)[^\s).,;:!?"”’\-]/g, (t, m) => TH_CH.test(m[0]));
     hint('writing.5', br.length ? `น่าสงสัย ${br.length} จุด ตรวจด้วยตา: ${egs(br)}` : 'ไม่พบวงเล็บที่ติดกับคำไทย ตรวจด้วยตาอีกครั้ง');
+
+    // writing.3: "และ" "หรือ" ที่เป็นคำเชื่อมต้องเว้นวรรคข้างหน้า ทั้งเนื้อหาและในตาราง ไม่นับคำใน CONJ_SKIP เช่น "หรือไม่"
+    const conj = []; let conjN = 0;
+    texts.forEach(t => {
+      const skipAt = new Set();
+      CONJ_SKIP.forEach(w => { const o = w.search(/และ|หรือ/); for (let p = t.indexOf(w); p >= 0; p = t.indexOf(w, p + 1)) skipAt.add(p + o); });
+      const re = /(^|[\s\S])(และ|หรือ)/g; let m;
+      while ((m = re.exec(t))) {
+        const at = m.index + m[1].length; re.lastIndex = at + m[2].length; conjN++;
+        if (m[1] && /[฀-๿A-Za-z0-9)]/.test(m[1]) && !skipAt.has(at)) conj.push(snip(t.slice(Math.max(0, at - 12), at + m[2].length + 12)));
+      }
+    });
+    if (conj.length) { set('writing.3', 'no', `${conj.length} จุดไม่เว้นวรรคหน้า "และ" "หรือ": ${egs(conj)}`, conj.length); tip('writing.3', 'การใช้ "และ" "หรือ" หน้ารายการสุดท้ายเท่านั้น ยังต้องตรวจด้วยตา'); }
+    else hint('writing.3', conjN ? `"และ" "หรือ" ${conjN} จุด เว้นวรรคข้างหน้าครบ ตรวจด้วยตาว่าใช้หน้ารายการสุดท้ายเท่านั้น` : 'ไม่พบ "และ" "หรือ" ในเอกสาร');
+    // writing.8: รายการใช้สัญลักษณ์ • o - ตามระดับได้ (ข้อตกลง QA) ส่วนการแยกบรรทัดยังตรวจด้วยตา
+    hint('writing.8', 'ตรวจด้วยตาว่ารายการไม่เรียงลำดับเกิน 3 รายการแยกบรรทัด ใช้สัญลักษณ์ • o - ตามระดับได้ ไม่นับ • และ o เป็นจุดผิด');
+
+    // lang.0: สระอำที่พิมพ์เป็นนิคหิต + สระอา (ํา) และอักขระที่มองไม่เห็น (U+200B–200D, U+FEFF)
+    const nik = [], inv = [];
+    all.forEach(t => {
+      const re = /ํา/g; let m;
+      while ((m = re.exec(t))) {
+        let a = m.index, b = m.index + 2;
+        while (a > 0 && m.index - a < 4 && /[ก-๎]/.test(t[a - 1])) a--;
+        while (b < t.length && b - m.index < 6 && /[ก-๎]/.test(t[b])) b++;
+        nik.push(t.slice(a, b));
+      }
+      INVISIBLE.lastIndex = 0;
+      while ((m = INVISIBLE.exec(t))) inv.push(`"${t.slice(Math.max(0, m.index - 6), m.index).trim()}[U+${m[0].codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}]${t.slice(m.index + 1, m.index + 7).trim()}"`);
+    });
+    if (nik.length || inv.length) {
+      const parts = [];
+      if (nik.length) parts.push(`สระอำพิมพ์เป็น ํ + า ${nik.length} จุด เช่น ${[...new Set(nik)].slice(0, 3).join(', ')}`);
+      if (inv.length) parts.push(`อักขระที่มองไม่เห็น ${inv.length} จุด เช่น ${egs(inv)}`);
+      set('lang.0', 'no', parts.join(' · '), nik.length + inv.length);
+      tip('lang.0', 'คำสะกดผิดอื่นยังต้องตรวจด้วยตา');
+    } else hint('lang.0', 'ไม่พบสระอำที่พิมพ์แยก (ํ + า) หรืออักขระที่มองไม่เห็น ตรวจคำสะกดผิดอื่นด้วยตา');
   }
 
   /* --- version in the body/header vs file name --- */
@@ -418,6 +532,19 @@ export function analyzeDocx(xml, opts){
       scan(m, cell || `ย่อหน้าที่ ${pn}${lastHead ? ` ใต้หัวข้อ ${snip(lastHead)}` : ''}`);
     });
     hdrP.forEach(m => scan(m, 'Header')); ftrP.forEach(m => scan(m, 'Footer'));
+  }
+
+  /* --- dsx.2 (เฉพาะ DS): ตารางรหัสเอกสารต้องมีทุกรหัสที่เว็บใช้ (documents.js) --- */
+  if (opts.code === 'DS') {
+    const ct = gridT.find(t => { const hr = headRow(t); return hr >= 0 && t.rows[hr].some(c => /รหัสเอกสาร/.test(t.cellText(c))); });
+    if (!ct) hint('dsx.2', 'ไม่พบตารางรหัสเอกสาร (หัวคอลัมน์ "รหัสเอกสาร") ตรวจด้วยตา');
+    else {
+      const hr = headRow(ct), ci = ct.rows[hr].findIndex(c => /รหัสเอกสาร/.test(ct.cellText(c)));
+      const codes = new Set(ct.rows.slice(hr + 1).map(r => r[ci] ? ct.cellText(r[ci]).trim().toUpperCase() : '').filter(Boolean));
+      const all = Object.keys(DOCS), missing = all.filter(c => !codes.has(c));
+      if (missing.length) set('dsx.2', 'no', `ตารางรหัสเอกสารไม่มี ${missing.join(', ')} (ในตาราง ${codes.size} รหัส เว็บใช้ ${all.length} รหัส)`, missing.length);
+      else set('dsx.2', 'yes', `ครบ ${all.length} รหัสที่เว็บใช้`);
+    }
   }
 
   /* --- Security Standard (SS): กฎหมวด ssx อยู่ใน ss-rules.js --- */

@@ -1,4 +1,4 @@
-import { itemId, sectionsFor } from '../config/checklists.js';
+import { QA_NOTES, QA_REF, itemId, sectionsFor } from '../config/checklists.js';
 import { DOCS, FILE_EG } from '../config/documents.js';
 import { checksOf, persist, state } from '../state.js';
 import { checkFileName } from './form.js';
@@ -28,7 +28,7 @@ export function renderChecklist(){
     sec.items.forEach((t, ii) => {
       const id = itemId(sec, ii); const n = `${si+1}.${ii+1}`;
       const row = document.createElement('div'); row.className = 'row'; row.dataset.id = id;
-      row.innerHTML = `<div class="num">${n}</div><div class="txt">${esc(t)}<span class="auto-tag" hidden>อัตโนมัติ</span></div>
+      row.innerHTML = `<div class="num">${n}</div><div class="txt">${esc(t)}<span class="auto-tag" hidden>อัตโนมัติ</span>${QA_NOTES[id] ? `<details class="qa-note"><summary>คำแนะนำ</summary><p>${esc(QA_NOTES[id])}<span class="qa-ref">${esc(QA_REF)}</span></p></details>` : ""}</div>
         <div class="seg" role="group" aria-label="ผลตรวจ ข้อ ${n}"><button type="button" data-v="yes">ผ่าน</button><button type="button" data-v="no">ไม่ผ่าน</button><button type="button" data-v="na">ไม่พบข้อมูล</button></div>
         <input class="note" id="note-${state.doc}-${id}" type="text" placeholder="รายละเอียด / หน้าที่พบ" aria-label="รายละเอียด ข้อ ${n}">
         <label class="errbox"><span class="lbl-m">ผิดพลาด</span><input class="err" id="err-${state.doc}-${id}" type="number" min="0" step="1" inputmode="numeric" aria-label="จำนวนข้อผิดพลาด ข้อ ${n}"></label>`;

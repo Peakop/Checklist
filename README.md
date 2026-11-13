@@ -45,7 +45,7 @@ js/
     index.js               รับไฟล์ (เลือกหรือลากวาง) และเติมผลลงรายการตรวจ
     result.js              กฎชื่อไฟล์และเวอร์ชัน (ใช้ร่วมกันทั้ง Word และ Excel)
     secrets.js             ตรวจและซ่อนค่าความลับ
-    docx/                  อ่าน .docx และกฎตรวจ (analyze.js) กฎเฉพาะ Security Standard อยู่ที่ ss-rules.js
+    docx/                  อ่าน .docx และกฎตรวจ (analyze.js) ระดับหัวข้อจากเลขข้อ (levels.js) กฎเฉพาะ Security Standard อยู่ที่ ss-rules.js
     xlsx.js                อ่านและตรวจ .xlsx
   utils/                   ฟังก์ชันช่วยเรื่อง DOM และวันที่ภาษาไทย
 assets/                    ภาพหัวและท้ายกระดาษ PDF, ฟอนต์ TH SarabunPSK และลายเซ็นสมาชิก

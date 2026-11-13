@@ -104,3 +104,11 @@
 
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 20px);background:var(--ink);color:var(--sheet);padding:10px 16px;border-radius:8px;font-size:14px;z-index:60;max-width:calc(100% - 32px);box-shadow:0 6px 20px rgba(0,0,0,.25)}
 
+/* ปุ่ม "คำแนะนำ" ของข้อตรวจที่มีข้อตกลง QA */
+.qa-note{margin-top:4px;font-size:12.5px;color:var(--muted)}
+.qa-note summary{display:inline-block;cursor:pointer;color:var(--accent);font-weight:600;list-style:none}
+.qa-note summary::-webkit-details-marker{display:none}
+.qa-note summary::before{content:"ⓘ ";font-weight:400}
+.qa-note[open] summary{margin-bottom:2px}
+.qa-note p{margin:0;line-height:1.55;overflow-wrap:anywhere}
+.qa-ref{display:block;margin-top:2px;font-size:11.5px;color:var(--faint)}
