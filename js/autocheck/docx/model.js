@@ -6,6 +6,12 @@ export const SYMBOL_FONT = /^(Symbol|Wingdings.*|Webdings|Segoe UI (Symbol|Emoji
 export const PLACEHOLDER = /ชื่อเอกสารภาษาไทย|ชื่อเอกสารภาษาอังกฤษ|lorem ipsum|คลิกหรือแตะที่นี่|click or tap here|ใส่ข้อความ|\bx{3,}\b/i;
 export const LEFTISH = new Set(['left','start','both','distribute','thaiDistribute','lowKashida','mediumKashida','highKashida']);
 export const MIN_IMG_EMU = 1440000;   // ภาพกว้างไม่ถึง 4 ซม. ถือเป็นโลโก้หรือไอคอน ไม่ต้องมีชื่อภาพ
+/* อักขระที่ TH SarabunPSK ไม่มี Word จึงดึงฟอนต์อื่น (เช่น Arial, Segoe UI Symbol) มาแสดงแทน เปลี่ยนเป็น Sarabun ไม่ได้
+   ช่วง: Greek, Arrows, Mathematical Operators, Misc Technical, Box Drawing, Geometric Shapes, Misc Symbols/Dingbats, emoji
+   ยกเว้นตัวที่ฟอนต์มีจริง (ตรวจจาก cmap ของ assets/fonts/THSarabunPSK*.ttf): ∂ ∆ ∏ ∑ − √ ∞ ∫ ≈ ≠ ≤ ≥ ◊ ◌ */
+const NO_GLYPH_RANGES = [[0x0370, 0x03FF], [0x2190, 0x21FF], [0x2200, 0x22FF], [0x2300, 0x23FF], [0x2500, 0x257F], [0x25A0, 0x25FF], [0x2600, 0x27BF], [0xFE0E, 0xFE0F], [0x1F300, 0x10FFFF]];
+const SARABUN_HAS = new Set([0x2202, 0x2206, 0x220F, 0x2211, 0x2212, 0x221A, 0x221E, 0x222B, 0x2248, 0x2260, 0x2264, 0x2265, 0x25CA, 0x25CC]);
+export const NO_SARABUN_GLYPH = ch => { const c = ch.codePointAt(0); return !SARABUN_HAS.has(c) && NO_GLYPH_RANGES.some(([a, b]) => c >= a && c <= b); };
 function rPrOf(rPr){
   const o = {}; if (!rPr) return o;
   const f = wKid(rPr, 'rFonts');
@@ -33,8 +39,30 @@ function pPrOf(pPr){
   const ol = att(wKid(pPr, 'outlineLvl')); if (ol != null) o.lvl = +ol;
   const ps = att(wKid(pPr, 'pStyle')); if (ps) o.ps = ps;
   if (onOff(wKid(pPr, 'pageBreakBefore'))) o.pbb = true;
-  const np = wKid(pPr, 'numPr'); if (np) o.list = att(wKid(np, 'numId')) !== '0';
+  const np = wKid(pPr, 'numPr');
+  if (np) {
+    const id = att(wKid(np, 'numId')), il = att(wKid(np, 'ilvl'));
+    o.list = id !== '0';
+    if (id != null) o.numId = id;
+    if (il != null) o.ilvl = +il;
+  }
   return o;
+}
+/* numbering.xml: numId → list key (abstractNum ที่ใช้ร่วมกัน) และรูปแบบแต่ละระดับ {fmt, text, start} */
+export function readNumbering(doc){
+  const abs = {}, nums = {}, root = doc && doc.documentElement;
+  if (root) {
+    wKids(root, 'abstractNum').forEach(a => {
+      const lv = {};
+      wKids(a, 'lvl').forEach(l => { lv[+att(l, 'ilvl')] = {fmt:att(wKid(l, 'numFmt')), text:att(wKid(l, 'lvlText')), start:+(att(wKid(l, 'start')) || 1)}; });
+      abs[att(a, 'abstractNumId')] = lv;
+    });
+    wKids(root, 'num').forEach(n => { nums[att(n, 'numId')] = att(wKid(n, 'abstractNumId')); });
+  }
+  return id => {
+    const a = nums[id];
+    return {key:a != null ? 'a' + a : 'n' + id, lvl:i => (a != null && abs[a] && abs[a][i]) || {}};
+  };
 }
 export function readStyles(doc, themeDoc){
   const st = {}, root = doc && doc.documentElement;

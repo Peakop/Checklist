@@ -1,5 +1,5 @@
 import { analyzeSecurityStandard } from './ss-rules.js';
-import { LEFTISH, MIN_IMG_EMU, PLACEHOLDER, SARABUN, SYMBOL_FONT, TOC_KIND, charFmt, paraModel, readStyles, tableModel } from './model.js';
+import { LEFTISH, MIN_IMG_EMU, NO_SARABUN_GLYPH, PLACEHOLDER, SARABUN, SYMBOL_FONT, TOC_KIND, charFmt, paraModel, readNumbering, readStyles, tableModel } from './model.js';
 import { NS_PIC, NS_WP, att, inCell, inFallback, inTextbox, ownerP, upTo, wAll, wKid, wKids } from './xml.js';
 import { checkFileNameRules, resultSet } from '../result.js';
 import { findSecrets, redactText } from '../secrets.js';
@@ -9,8 +9,9 @@ import { parseThaiDate, toBE } from '../../utils/thai-date.js';
 /* xml: {document, styles, theme, headers:[], footers:[]} as parsed XML documents
    opts: {code, name, fileName, meeting} */
 export function analyzeDocx(xml, opts){
-  const rs = resultSet(), {R, set, hint} = rs;
+  const rs = resultSet(), {R, set, hint, tip} = rs;
   const S = readStyles(xml.styles, xml.theme);
+  const N = readNumbering(xml.numbering);
   const body = xml.document && wAll(xml.document.documentElement, 'body')[0];
   if (!body) throw new Error('ไม่พบเนื้อหาในไฟล์ (word/document.xml)');
   const {fileVer, fileDate} = checkFileNameRules(rs, opts);
@@ -62,19 +63,29 @@ export function analyzeDocx(xml, opts){
 
   /* --- fonts (DS ข้อ 2) --- */
   {
-    const other = {}; let badP = 0;
+    const other = {}, skip = {}; let badP = 0;
+    // run ที่มีแต่สัญลักษณ์ที่ TH SarabunPSK ไม่มี (เช่น →) ไม่นับ เพราะเปลี่ยนเป็น Sarabun ไม่ได้ ถ้าปนตัวอักษรทั่วไปยังนับเหมือนเดิม
+    // run ที่มีแต่ช่องว่างไม่ถูกนับอยู่แล้ว เพราะ charFmt ไม่นับช่องว่าง
+    const symOnly = t => { const cs = [...t].filter(ch => !/\s/.test(ch)); return cs.length > 0 && cs.every(NO_SARABUN_GLYPH); };
     allBodyP.concat(hdrP, ftrP).forEach(m => {
       let bad = false;
-      charFmt(m, S).forEach(c => { if (SARABUN.test(c.font) || SYMBOL_FONT.test(c.font)) return; bad = true; const o = other[c.font] || (other[c.font] = {n:0, eg:c.text}); o.n += c.n; });
+      charFmt(m, S).forEach(c => {
+        if (SARABUN.test(c.font) || SYMBOL_FONT.test(c.font)) return;
+        if (symOnly(c.text)) { [...c.text].forEach(ch => { if (!/\s/.test(ch) && !/[︎️]/.test(ch)) skip[ch] = (skip[ch] || 0) + 1; }); return; }
+        bad = true; const o = other[c.font] || (other[c.font] = {n:0, eg:c.text}); o.n += c.n;
+      });
       if (bad) badP++;
     });
+    const sk = Object.keys(skip).sort((a, b) => skip[b] - skip[a]);
+    const skipList = sk.slice(0, 5).map(ch => `${ch} ${skip[ch]} ตัว`).join(', ') + (sk.length > 5 ? ` และอีก ${sk.length - 5} แบบ` : '');
+    const skipNote = sk.length ? ` · ไม่นับ ${skipList} (TH SarabunPSK ไม่มีอักขระนี้)` : '';
     const names = Object.keys(other).sort((a, b) => other[b].n - other[a].n);
-    if (names.length) set('font.0', 'no', `พบฟอนต์อื่น ${names.slice(0, 3).map(f => `${f} ${other[f].n} ตัวอักษร เช่น ${snip(other[f].eg)}`).join(' · ')}${names.length > 3 ? ` และอีก ${names.length - 3} ฟอนต์` : ''}`, badP);
-    else set('font.0', 'yes', 'TH SarabunPSK ทั้งเอกสาร รวม Header และ Footer');
+    if (names.length) set('font.0', 'no', `พบฟอนต์อื่น ${names.slice(0, 3).map(f => `${f} ${other[f].n} ตัวอักษร เช่น ${snip(other[f].eg)}`).join(' · ')}${names.length > 3 ? ` และอีก ${names.length - 3} ฟอนต์` : ''}${skipNote}`, badP);
+    else set('font.0', 'yes', `TH SarabunPSK ทั้งเอกสาร รวม Header และ Footer${skipNote}`);
+    if (sk.length) tip('font.0', `ไม่นับสัญลักษณ์ที่ TH SarabunPSK ไม่มี (ลูกศร เครื่องหมายคณิตศาสตร์ รูปทรง อีโมจิ อักษรกรีก) เพราะ Word ต้องใช้ฟอนต์อื่นแสดงแทน พบ ${skipList} · ถ้าสัญลักษณ์อยู่ติดกับข้อความทั่วไปในฟอนต์อื่น ยังนับเป็นจุดผิด`);
   }
   const LV = [{lvl:0, size:40, font:'font.1', sp:'spacing.1', before:320, after:40, name:'Heading 1 (หัวเรื่อง)'},
-              {lvl:1, size:36, font:'font.2', sp:'spacing.2', before:120, after:40, name:'Heading 2 (หัวข้อ)'},
-              {lvl:2, size:32, font:'font.3', name:'Heading 3 (หัวข้อย่อย)'}];
+              {lvl:1, size:36, font:'font.2', sp:'spacing.2', before:120, after:40, name:'Heading 2 (หัวข้อ)'}];
   LV.forEach(L => {
     const hs = headings(L.lvl);
     if (!hs.length) { hint(L.font, `ไม่พบย่อหน้าที่ใช้สไตล์ ${L.name} จึงตรวจขนาดอัตโนมัติไม่ได้ ตรวจด้วยตา`); if (L.sp) hint(L.sp, `ไม่พบย่อหน้าที่ใช้สไตล์ ${L.name}`); return; }
@@ -86,21 +97,100 @@ export function analyzeDocx(xml, opts){
     hs.forEach(m => { const b = m.pp.before || 0, a = m.pp.after || 0; if (b !== L.before || a !== L.after || m.pp.autoB || m.pp.autoA) badS.push(`${snip(m.text)} ก่อน ${b / 20} หลัง ${a / 20} pt`); });
     if (badS.length) set(L.sp, 'no', `${badS.length} จาก ${hs.length} หัวข้อ: ${egs(badS, 'หัวข้อ')}`, badS.length); else set(L.sp, 'yes', `${hs.length} หัวข้อ ก่อน ${L.before / 20} pt หลัง ${L.after / 20} pt`);
   });
+
+  /* --- หัวข้อย่อย (ข้อ font.3) = ข้อที่มีเลขระดับถัดจากหัวข้อลงไป 1 ระดับ ต้อง 16 pt ตัวหนาทุกข้อ ---
+     ใช้ Heading style: หัวข้อ = Heading 2 หัวข้อย่อย = Heading 3
+     ไม่มี Heading: หัวข้อ = ย่อหน้ามีลำดับเลขที่หนา 18 pt (เช่น ilvl 0 "1.") หัวข้อย่อย = ระดับถัดลงไปในลำดับเลขเดียวกัน (ilvl 1 "1.1")
+     ทั้งสองแบบนับย่อหน้าที่พิมพ์เลขเองด้วย เช่น "1.1 " เมื่อหัวข้อเป็น "1." หรือ "1.1.1 " เมื่อหัวข้อเป็น "1.1" (SS) */
+  const subSet = new Set();
+  {
+    // บรรทัดสารบัญที่ไม่ได้ใช้สไตล์ TOC ลงท้ายด้วยแท็บและเลขหน้า เช่น "2.1 ภาพรวม⇥3" ไม่ใช่หัวข้อย่อย
+    const tocLine = m => /\t\s*\d+\s*$/.test(m.text);
+    const inBody = m => !cover.has(m.el) && !inCell(m.el) && !inTextbox(m.el) && !isToc(m) && !tocLine(m) && m.text.trim();
+    const typedNo = m => (/^(\d+(?:\.\d+)*)\.?\s/.exec(m.text.trim()) || [])[1] || null;
+    // เลขอัตโนมัติที่ Word แสดง คำนวณจากลำดับย่อหน้า (ใช้รูปแบบ lvlText ใน numbering.xml ถ้ามี) ไม่นับ bullet
+    const numKey = m => m.pp.numId && m.pp.numId !== '0' ? N(m.pp.numId) : null;
+    const numLabel = new Map(), ctr = {};
+    allBodyP.forEach(m => {
+      const n = numKey(m); if (!n) return;
+      const il = m.pp.ilvl || 0, L = n.lvl(il);
+      if (L.fmt === 'bullet' || L.fmt === 'none') return;
+      const c = ctr[n.key] || (ctr[n.key] = []);
+      for (let k = 0; k < il; k++) if (c[k] == null) c[k] = n.lvl(k).start || 1;
+      c[il] = c[il] == null ? (L.start || 1) : c[il] + 1; c.length = il + 1;
+      const fmt = L.text != null ? L.text : c.map((_, k) => `%${k + 1}`).join('.');
+      numLabel.set(m.el, fmt.replace(/%(\d)/g, (_, k) => c[k - 1] != null ? c[k - 1] : 1).trim().replace(/[.)]$/, ''));
+    });
+    const noOf = m => typedNo(m) || numLabel.get(m.el) || null;
+    const depthOf = m => { const t = noOf(m); return t && /^\d+(\.\d+)*$/.test(t) ? t.split('.').length : null; };
+    const most = a => { const c = {}; a.forEach(v => { if (v != null) c[v] = (c[v] || 0) + 1; }); const k = Object.keys(c).sort((x, y) => c[y] - c[x] || x - y)[0]; return k == null ? null : +k; };
+    const big = m => { const f = charFmt(m, S); return f.length > 0 && f.every(c => c.bold && c.size === 36); };
+    const bodyAll = allBodyP.filter(inBody);
+    const useStyle = headings(1).length > 0 || headings(2).length > 0;
+    const heads = useStyle ? headings(1) : bodyAll.filter(m => m.lvl == null && noOf(m) && big(m));
+    // ระดับลำดับเลขของหัวข้อ (เลือกระดับที่พบมากที่สุด) ระดับถัดลงไปในรายการเดียวกันคือหัวข้อย่อย
+    const listHeads = heads.filter(m => numLabel.has(m.el));
+    const headIl = most(listHeads.map(m => m.pp.ilvl || 0));
+    const subLists = new Set(listHeads.filter(m => (m.pp.ilvl || 0) === headIl).map(m => numKey(m).key));
+    let d = most(heads.map(depthOf));
+    if (d == null && useStyle) { const d1 = most(headings(0).map(depthOf)); if (d1 != null) d = d1 + 1; }
+    const typedRe = d != null ? new RegExp(`^\\d+(?:\\.\\d+){${d}}\\.?\\s`) : null;
+    const headSet = new Set(heads.map(m => m.el));
+    bodyAll.forEach(m => {
+      if (headSet.has(m.el) || (m.lvl != null && m.lvl !== 2)) return;
+      const n = numLabel.has(m.el) ? numKey(m) : null;
+      if ((useStyle && m.lvl === 2) || (n && subLists.has(n.key) && (m.pp.ilvl || 0) === headIl + 1) || (!n && typedRe && typedRe.test(m.text.trim()))) subSet.add(m.el);
+    });
+    const subs = bodyAll.filter(m => subSet.has(m.el));
+    if (!subs.length) hint('font.3', 'ไม่พบหัวข้อย่อย (ข้อเลขระดับถัดจากหัวข้อ เช่น 1.1 หรือสไตล์ Heading 3) จึงตรวจอัตโนมัติไม่ได้ ตรวจด้วยตาว่าหัวข้อย่อยทุกข้อ 16 pt ตัวหนา');
+    else {
+      // ขนาดดูฝั่ง cs (szCs) เมื่อ run มีอักษรไทย ตัวหนานับทั้ง b และ bCs
+      const fault = m => {
+        const p = new Set();
+        m.runs.forEach(({e, text}) => {
+          if (!text.trim()) return;
+          const size = TH_CH.test(text) ? (e.szc != null ? e.szc : e.sz != null ? e.sz : 20) : (e.sz != null ? e.sz : 20);
+          if (size !== 32) p.add(`ขนาด ${pt(size)}`);
+          if (!e.b && !e.bc) p.add('ไม่หนา');
+        });
+        return [...p].sort().join(' ');
+      };
+      const groups = new Map();
+      subs.forEach(m => { const f = fault(m); if (!f) return; if (!groups.has(f)) groups.set(f, []); groups.get(f).push(noOf(m) || snip(m.text)); });
+      // 3.1, 3.2, 3.3 → 3.1–3.3
+      const ranges = labels => {
+        const out = [];
+        labels.forEach(l => {
+          const last = out[out.length - 1], p = /^(.*\.)(\d+)$/.exec(l);
+          if (last && p && last.pre === p[1] && last.to + 1 === +p[2]) { last.to++; last.n++; }
+          else out.push(p ? {pre:p[1], from:+p[2], to:+p[2], n:1} : {txt:l, n:1});
+        });
+        const txt = r => r.txt || (r.to - r.from >= 2 ? `${r.pre}${r.from}–${r.pre}${r.to}` : Array.from({length:r.to - r.from + 1}, (_, k) => `${r.pre}${r.from + k}`).join(', '));
+        const shown = out.slice(0, 6), rest = out.slice(6).reduce((a, r) => a + r.n, 0);
+        return shown.map(txt).join(', ') + (rest ? ` และอีก ${rest} ข้อ` : '');
+      };
+      const badN = [...groups.values()].reduce((a, g) => a + g.length, 0);
+      if (badN) set('font.3', 'no', `${badN} จาก ${subs.length} ข้อ ${[...groups].map(([f, ls]) => `${f}: ${ranges(ls)}`).join(' · ')}`, badN);
+      else set('font.3', 'yes', `${subs.length} ข้อ ขนาด 16 pt ตัวหนา`);
+    }
+  }
   {
     // a short, all-bold line set larger than body text is a heading typed by hand, not body text
     const manualHead = m => { const f = charFmt(m, S); return m.text.trim().length <= 60 && f.length && f.every(c => c.bold && c.size > 32); };
-    const cand = allBodyP.filter(isBody);
-    const bodyP = cand.filter(m => !manualHead(m)), skipped = cand.length - bodyP.length;
-    const skipNote = skipped ? ` · ไม่นับหัวข้อที่จัดรูปแบบเอง ${skipped} บรรทัด` : '';
+    // หัวข้อย่อยตรวจในข้อ font.3 แล้ว ไม่นำมาตรวจเป็นเนื้อหาอีก
+    const cand = allBodyP.filter(isBody), subN = cand.filter(m => subSet.has(m.el)).length;
+    const bodyP = cand.filter(m => !subSet.has(m.el) && !manualHead(m)), skipped = cand.length - subN - bodyP.length;
+    const skipNote = (skipped ? ` · ไม่นับหัวข้อที่จัดรูปแบบเอง ${skipped} บรรทัด` : '') + (subN ? ` · ไม่นับหัวข้อย่อย ${subN} ข้อ` : '');
     const sizes = {}; const bad = [];
     bodyP.forEach(m => { const f = charFmt(m, S).find(c => c.size !== 32); if (f) { bad.push(snip(m.text)); sizes[pt(f.size)] = (sizes[pt(f.size)] || 0) + 1; } });
     if (!bodyP.length) hint('font.4', 'ไม่พบย่อหน้าเนื้อหา');
     else if (bad.length) set('font.4', 'no', `${bad.length} ย่อหน้าไม่ใช่ 16 pt (${Object.keys(sizes).map(k => `${k} ${sizes[k]} ย่อหน้า`).join(', ')}) เช่น ${egs(bad, 'ย่อหน้า')} · ตรวจเฉพาะขนาด${skipNote}`, bad.length);
     else set('font.4', 'yes', `${bodyP.length} ย่อหน้าเนื้อหา 16 pt · ตรวจเฉพาะขนาด${skipNote}`);
     // list items (bullets, numbering) are usually set tight on purpose, so only plain paragraphs are held to 0/8 pt
-    const listN = bodyP.filter(m => m.pp.list).length;
+    const spBase = cand.filter(m => !manualHead(m));   // ระยะบรรทัดตรวจชุดเดิม รวมหัวข้อย่อยที่พิมพ์เลขเอง
+    const listN = spBase.filter(m => m.pp.list).length;
     const listNote = listN ? ` · ไม่นับรายการ bullet หรือลำดับเลข ${listN} ย่อหน้า` : '';
-    const spP = bodyP.filter(m => !isCaption(m) && !m.pp.list);
+    const spP = spBase.filter(m => !isCaption(m) && !m.pp.list);
     const badS = []; const kinds = {};
     spP.forEach(m => {
       const b = m.pp.before || 0, a = m.pp.after || 0, line = m.pp.line != null ? m.pp.line : 240, rule = m.pp.lineRule || 'auto';
