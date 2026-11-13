@@ -15,10 +15,17 @@ const SECRETS = [
   ['สตริงสุ่มยาว 40 ตัวขึ้นไป', /(?<![A-Za-z0-9+/:_-])[A-Za-z0-9+/]{40,}={0,2}(?![A-Za-z0-9+/_-])/g,
     m => /[a-z]/.test(m[0]) && /[A-Z]/.test(m[0]) && /\d/.test(m[0]) && (m[0].match(/\//g) || []).length <= 2 ? m[0] : null]
 ];
-// [{kind, value}] ของทุกค่าความลับในข้อความ
+// [{kind, value}] ของทุกค่าความลับในข้อความ รูปแบบเรียงจากเฉพาะไปกว้าง ช่วงที่รูปแบบก่อนหน้าจับได้แล้วไม่นับซ้ำ
 export function findSecrets(text){
-  const out = [];
-  SECRETS.forEach(([kind, re, keep]) => { re.lastIndex = 0; let m; while ((m = re.exec(text))) { const v = keep(m); if (v) out.push({kind, value:v}); } });
+  const out = [], taken = [];
+  SECRETS.forEach(([kind, re, keep]) => {
+    re.lastIndex = 0; let m;
+    while ((m = re.exec(text))) {
+      const a = m.index, b = a + m[0].length;
+      if (taken.some(([x, y]) => a < y && x < b)) continue;
+      const v = keep(m); if (v) { out.push({kind, value:v}); taken.push([a, b]); }
+    }
+  });
   return out;
 }
 // ซ่อนทุกช่วงในข้อความที่ซ้ำกับค่าความลับตั้งแต่ 6 ตัวอักษรขึ้นไป (ข้อความตัวอย่างในผลตรวจตัดเหลือ 30 ตัว จึงอาจมีความลับเพียงบางส่วน)

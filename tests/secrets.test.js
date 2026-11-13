@@ -18,6 +18,13 @@ test('พบค่าความลับทุกรูปแบบที่�
   assert.deepEqual(kinds("password='S3cret pass'"), ['รหัสผ่าน (password=)']);
 });
 
+test('ค่าเดียวนับครั้งเดียว แม้ตรงหลายรูปแบบ', () => {
+  const kinds = t => findSecrets(t).map(x => x.kind);
+  assert.deepEqual(kinds(`key=AIza${AIZA}b`), ['Google API key (AIza)']);   // ยาว 40 ตัว ตรงรูปแบบสตริงสุ่มยาวด้วย
+  assert.deepEqual(kinds(`DB_PASSWORD=${KEY.replace('=', '')}`), ['รหัสผ่าน (password=)']);
+  assert.deepEqual(kinds(`${KEY} และ key=AIza${AIZA}`), ['Google API key (AIza)', 'สตริงสุ่มยาว 40 ตัวขึ้นไป']);   // คนละค่า นับทั้งสอง
+});
+
 test('ไม่นับข้อความที่หน้าตาคล้ายความลับแต่ไม่ใช่', () => {
   for (const t of ['Password::defaults()', '$user->password = Str::random(40);', 'DB_PASSWORD=', 'DB_PASSWORD=${DB_PASSWORD}',
     'MAIL_PASSWORD=********', 'DB_PASSWORD=ว่าง', 'git commit 0123456789abcdef0123456789abcdef01234567', '-----BEGIN PUBLIC KEY-----',
