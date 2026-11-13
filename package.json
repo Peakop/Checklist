@@ -1,0 +1,17 @@
+{
+  "name": "doc-checklist",
+  "version": "1.6.1",
+  "private": true,
+  "description": "เว็บตรวจเอกสารตาม Document Standard ของทีม Stealth Trade (https://peakop.github.io/Checklist/)",
+  "type": "module",
+  "scripts": {
+    "start": "python -m http.server 8000",
+    "test": "node --test \"tests/**/*.test.js\"",
+    "test:fixtures": "node tests/fixtures.js",
+    "snapshot": "node tests/update-snapshot.js"
+  },
+  "devDependencies": {
+    "@xmldom/xmldom": "0.8.10",
+    "jszip": "3.10.1"
+  }
+}

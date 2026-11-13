@@ -1,0 +1,43 @@
+/* ตัวแปรสี (โหมดสว่าง/มืด) ค่าเริ่มต้นของ element และตัวอักษร */
+
+/* Layout: two-pane inspection workbench. Document index on the left, the inspection sheet on the right, sticky score strip on top of the sheet. */
+:root{
+  --paper:#EDF0F4; --sheet:#FFFFFF; --ink:#17202D; --muted:#5A6577; --faint:#8A94A3;
+  --line:#DAE0E8; --line-strong:#BCC5D2;
+  --accent:#1D4E9E; --accent-ink:#FFFFFF; --accent-soft:#E4EBF7;
+  --pass:#17794A; --pass-soft:#E1F1E8; --fail:#BE3A2E; --fail-soft:#FBEAE7;
+  --warn:#94600A; --warn-soft:#FAF0D9; --na:#677080; --na-soft:#E9ECF0;
+  --f-ui:"IBM Plex Sans Thai","Noto Sans Thai","Leelawadee UI",system-ui,sans-serif;
+  --f-doc:"Sarabun","Noto Sans Thai",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --r:10px; --r-sm:7px;
+  --shadow:0 1px 2px rgba(23,32,45,.06),0 4px 14px rgba(23,32,45,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0E131A; --sheet:#161D27; --ink:#E5EAF1; --muted:#9AA5B5; --faint:#6E7887;
+    --line:#273141; --line-strong:#384457;
+    --accent:#86A9EE; --accent-ink:#0E131A; --accent-soft:#1C2940;
+    --pass:#53C48F; --pass-soft:#12301F; --fail:#F07D71; --fail-soft:#3A1B18;
+    --warn:#E6B154; --warn-soft:#33280F; --na:#A3ACB9; --na-soft:#222A36;
+    --shadow:0 1px 2px rgba(0,0,0,.3);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0E131A; --sheet:#161D27; --ink:#E5EAF1; --muted:#9AA5B5; --faint:#6E7887;
+  --line:#273141; --line-strong:#384457;
+  --accent:#86A9EE; --accent-ink:#0E131A; --accent-soft:#1C2940;
+  --pass:#53C48F; --pass-soft:#12301F; --fail:#F07D71; --fail-soft:#3A1B18;
+  --warn:#E6B154; --warn-soft:#33280F; --na:#A3ACB9; --na-soft:#222A36;
+  --shadow:0 1px 2px rgba(0,0,0,.3);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{background:var(--paper)}
+body{color:var(--ink);font-family:var(--f-ui);font-size:15px;line-height:1.55;padding-inline:16px;padding-block:0 48px}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{max-width:1360px;margin:0 auto}
+

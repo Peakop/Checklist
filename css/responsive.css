@@ -1,0 +1,31 @@
+/* ปรับตามความกว้างจอ และผู้ใช้ที่ปิดภาพเคลื่อนไหว (โหลดเป็นไฟล์สุดท้ายเสมอ) */
+
+@media (max-width: 1080px){
+  .colhead{display:none}
+  .row{grid-template-columns:2.6rem minmax(0,1fr) 6rem;grid-template-areas:"num txt txt" "num seg err" "num note note";row-gap:8px}
+  .row .seg{max-width:15rem}
+  .errbox .lbl-m{display:inline}
+  .errbox{justify-self:end}
+  .err{width:3.6rem}
+}
+@media (max-width: 900px){
+  .layout{grid-template-columns:minmax(0,1fr)}
+  .side{position:static;max-height:none}
+  .doc-list{max-height:260px}
+  .s6,.s3,.s4{grid-column:span 12} .s2{grid-column:span 6}
+  .summary{top:calc(env(safe-area-inset-top,0px) + 4px)}
+}
+@media (max-width: 520px){
+  .top-actions{margin-left:0;width:100%}
+  .top-actions .btn{flex:1;justify-content:center}
+  .row{grid-template-columns:2.2rem minmax(0,1fr) auto;padding:10px 12px}
+  .seg button{padding:6px 8px}
+  .sec-h{padding:10px 12px}
+  .info{padding:16px 14px}
+  .ref-chip{display:none}
+}
+/* จอแคบมาก ปุ่มผลตรวจ 3 ปุ่มได้บรรทัดของตัวเองเพื่อให้ "ไม่พบข้อมูล" ไม่ล้น จำนวนผิดพลาดย้ายไปบรรทัดล่างสุด */
+@media (max-width: 460px){
+  .row{grid-template-areas:"num txt txt" "num seg seg" "num note note" "num err err"}
+}
+@media (prefers-reduced-motion: reduce){ .bar span{transition:none} }
