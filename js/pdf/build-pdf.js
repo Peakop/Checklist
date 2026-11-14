@@ -1,5 +1,5 @@
 import { itemId, sectionsFor } from '../config/checklists.js';
-import { DOCS, REF_DEFAULT } from '../config/documents.js';
+import { DOCS } from '../config/documents.js';
 import { ensureFonts } from './fonts.js';
 import { bandLeft, loadLetterhead } from './letterhead.js';
 import { loadSignature } from './signature.js';
@@ -55,7 +55,6 @@ export async function buildPages(){
     ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'right'; ctx.fillStyle = lhTop ? '#fff' : INK;
     headLayout().forEach((l, i) => { ctx.font = font(l.size, l.w); ctx.fillText(i === 2 ? `หน้า | ${pages.length}` : l.t, mm(HEAD_R), mm(l.y)); });
     ctx.textAlign = 'left';
-    ctx.fillStyle = lhBot ? '#fff' : GREY; ctx.font = font(8.5); ctx.fillText(`อ้างอิงมาตรฐาน ${REF_DEFAULT}`, mm(ML), mm(PH - 10));
     y = mm(MT);
   }
   function text(str, x, size, w, color, align = 'left'){ ctx.font = font(size, w); ctx.fillStyle = color || INK; ctx.textAlign = align; ctx.fillText(str, x, y); ctx.textAlign = 'left'; }
