@@ -126,7 +126,7 @@ const DIAGRAM = {
     '<<include>> และ <<extend>> ใช้เส้นประหัวลูกศร ชื่อความสัมพันธ์เป็นตัวพิมพ์เล็ก',
     'ลูกศร <<include>> ชี้จาก Use Case หลักไปยัง Use Case ที่ถูกเรียกใช้',
     'ลูกศร <<extend>> ชี้จาก Use Case ส่วนขยายไปยัง Use Case หลัก',
-    'ชื่อ Actor เป็นภาษาไทย'
+    'ชื่อ Actor เป็นภาษาอังกฤษ'
   ]},
   UCDS: {key:'ucds', title:'คำอธิบายยูสเคส (Use Case Description)', ref:'DS ข้อ 6.1', items:[
     'Actor สอดคล้องกับ Use Case',
@@ -136,7 +136,7 @@ const DIAGRAM = {
     'ส่วนหัวมีเฉพาะผู้ติดต่อ (Actor) และระบบ (System)',
     'กิจกรรมเขียนเป็น ประธาน + กริยา',
     'เงื่อนไขเขียนเป็น กริยา + กรรม',
-    'ชื่อ Actor เป็นภาษาไทย',
+    'ชื่อ Actor เป็นภาษาอังกฤษ',
     'เงื่อนไขเป็นภาษาไทย และใช้คำว่า "จริง" และ "เท็จ"'
   ]},
   SD: {key:'sd', title:'แผนภาพลำดับ (Sequence Diagram)', ref:'DS ข้อ 6.1', items:[
@@ -145,7 +145,7 @@ const DIAGRAM = {
     'Return Message ใช้เส้นประหัวลูกศรเปิด',
     'ใช้กรอบ alt สำหรับเงื่อนไข และกรอบ loop สำหรับการทำงานซ้ำ',
     'ชื่อ Actor สอดคล้องกับ Use Case Diagram และชื่อ Object (เช่น View, Controller, Model) ใช้เหมือนกันทุกแผนภาพ',
-    'ชื่อ Actor เป็นภาษาไทย'
+    'ชื่อ Actor เป็นภาษาอังกฤษ'
   ]},
   CD: {key:'cd', title:'แผนภาพคลาส (Class Diagram)', ref:'DS ข้อ 6.1', items:[
     'คลาสเป็นสี่เหลี่ยม 3 ช่อง ได้แก่ ชื่อคลาส คุณลักษณะ (Attribute) และเมธอด (Method)',
