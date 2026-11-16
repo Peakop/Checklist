@@ -6,3 +6,4 @@
 node_modules/
 # เอกสารจริงและผลตรวจสำหรับ npm run test:fixtures (มีข้อมูลของทีม ห้าม commit)
 tests/fixtures/
+.DS_Store
