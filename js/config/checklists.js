@@ -130,7 +130,8 @@ const DIAGRAM = {
   ]},
   UCDS: {key:'ucds', title:'คำอธิบายยูสเคส (Use Case Description)', ref:'DS ข้อ 6.1', items:[
     'Actor สอดคล้องกับ Use Case',
-    'ขั้นตอนการทำงานตรงกับ Activity Diagram'
+    'ขั้นตอนการทำงานตรงกับ Activity Diagram',
+    'ชื่อ Actor เป็นภาษาอังกฤษ'
   ]},
   AD: {key:'ad', title:'แผนภาพกิจกรรม (Activity Diagram)', ref:'DS ข้อ 6.1', items:[
     'ส่วนหัวมีเฉพาะผู้ติดต่อ (Actor) และระบบ (System)',

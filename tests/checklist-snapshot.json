@@ -14,7 +14,7 @@
   "SDAD": "naming:2 version:5 page:5 font:5 spacing:2 pagenum:3 writing:10 lang:7 table:4 image:4",
   "AP": "naming:2 version:5 page:5 font:5 spacing:2 pagenum:3 writing:10 lang:7 table:4 image:4",
   "UCD": "naming:2 version:5 ucd:9 dgfmt:6",
-  "UCDS": "naming:2 version:5 page:5 font:2 pagenum:2 ucds:2 ucdsx:6 lang:7 table:3",
+  "UCDS": "naming:2 version:5 page:5 font:2 pagenum:2 ucds:3 ucdsx:6 lang:7 table:3",
   "AD": "naming:2 version:5 ad:5 dgfmt:7",
   "SD": "naming:2 version:5 sd:6 dgfmt:5",
   "CD": "naming:2 version:5 cd:6 dgfmt:4",
